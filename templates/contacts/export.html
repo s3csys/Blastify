@@ -1,0 +1,368 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0" id="contacts-export-container">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Export</strong> Contacts</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('contact.index') }}" class="btn btn-secondary">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Contacts
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8 col-xxl-9 d-flex">
+            <div class="card theme-card flex-fill">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Export Options</h5>
+                </div>
+                <div class="card-body">
+                    <form id="exportForm">
+                        <div class="mb-3">
+                            <label class="form-label">Export Format</label>
+                            <div class="d-flex flex-wrap gap-3">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="format" id="formatCSV" value="csv" checked>
+                                    <label class="form-check-label" for="formatCSV">
+                                        <i class="align-middle" data-feather="file-text"></i> CSV
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="format" id="formatXML" value="xml">
+                                    <label class="form-check-label" for="formatXML">
+                                        <i class="align-middle" data-feather="code"></i> XML
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="format" id="formatJSON" value="json">
+                                    <label class="form-check-label" for="formatJSON">
+                                        <i class="align-middle" data-feather="database"></i> JSON
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="format" id="formatVCF" value="vcf">
+                                    <label class="form-check-label" for="formatVCF">
+                                        <i class="align-middle" data-feather="user"></i> VCF (vCard)
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Contact Selection</label>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="selection" id="selectionAll" value="all" checked>
+                                <label class="form-check-label" for="selectionAll">
+                                    All contacts
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="selection" id="selectionGroup" value="group">
+                                <label class="form-check-label" for="selectionGroup">
+                                    Specific group
+                                </label>
+                            </div>
+                            <div class="ms-4 mb-3" id="groupSelectContainer" style="display: none;">
+                                <select class="form-select" id="groupSelect" name="group" disabled>
+                                    <!-- Groups will be loaded dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Fields to Export</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="fieldName" name="fields" value="name" checked disabled>
+                                        <label class="form-check-label" for="fieldName">
+                                            Name (required)
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="fieldPhone" name="fields" value="phone" checked disabled>
+                                        <label class="form-check-label" for="fieldPhone">
+                                            Phone (required)
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="fieldEmail" name="fields" value="email" checked>
+                                        <label class="form-check-label" for="fieldEmail">
+                                            Email
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="fieldGroup" name="fields" value="group" checked>
+                                        <label class="form-check-label" for="fieldGroup">
+                                            Group
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" id="fieldNotes" name="fields" value="notes" checked>
+                                        <label class="form-check-label" for="fieldNotes">
+                                            Notes
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary" id="exportButton">
+                                <i class="align-middle" data-feather="download"></i> Export Contacts
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 col-lg-4 col-xxl-3 d-flex">
+            <div class="card theme-card flex-fill">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Export Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Available Formats</h6>
+                        <ul class="list-unstyled">
+                            <li class="mb-2">
+                                <i class="align-middle" data-feather="file-text"></i> <strong>CSV</strong> - Comma-separated values, compatible with Excel and other spreadsheet applications
+                            </li>
+                            <li class="mb-2">
+                                <i class="align-middle" data-feather="code"></i> <strong>XML</strong> - Structured format for data exchange
+                            </li>
+                            <li class="mb-2">
+                                <i class="align-middle" data-feather="database"></i> <strong>JSON</strong> - JavaScript Object Notation, ideal for web applications
+                            </li>
+                            <li class="mb-2">
+                                <i class="align-middle" data-feather="user"></i> <strong>VCF</strong> - vCard format, compatible with most contact management applications
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="align-middle" data-feather="info"></i>
+                        <strong>Note:</strong> Exported files will be downloaded directly to your device. No data is stored on our servers during the export process.
+                    </div>
+                    
+                    <div class="alert alert-warning">
+                        <i class="align-middle" data-feather="alert-triangle"></i>
+                        <strong>Privacy Warning:</strong> Exported contact data may contain personal information. Handle with care and in compliance with applicable privacy regulations.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4" id="exportStats" style="display: none;">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Export Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="flex-shrink-0">
+                                    <div class="stat-icon bg-primary">
+                                        <i class="align-middle" data-feather="users"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h4 class="mb-0" id="exportTotalContacts">0</h4>
+                                    <p class="mb-0">Total Contacts</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="flex-shrink-0">
+                                    <div class="stat-icon bg-success">
+                                        <i class="align-middle" data-feather="tag"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h4 class="mb-0" id="exportTotalGroups">0</h4>
+                                    <p class="mb-0">Groups Included</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="flex-shrink-0">
+                                    <div class="stat-icon bg-info">
+                                        <i class="align-middle" data-feather="file"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <h4 class="mb-0" id="exportFileSize">0 KB</h4>
+                                    <p class="mb-0">File Size</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <p>Your export is ready. Click the button below to download.</p>
+                        <a href="#" class="btn btn-primary" id="downloadExport">
+                            <i class="align-middle" data-feather="download-cloud"></i> Download Export File
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+    
+    .stat-icon svg {
+        width: 24px;
+        height: 24px;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Feather icons
+        feather.replace();
+        
+        // Apply theme adjustments
+        applyThemeAdjustments();
+        
+        // Load contact groups
+        loadGroups();
+        
+        // Selection change handler
+        document.querySelectorAll('input[name="selection"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                const groupSelectContainer = document.getElementById('groupSelectContainer');
+                const groupSelect = document.getElementById('groupSelect');
+                
+                if (this.value === 'group') {
+                    groupSelectContainer.style.display = 'block';
+                    groupSelect.disabled = false;
+                } else {
+                    groupSelectContainer.style.display = 'none';
+                    groupSelect.disabled = true;
+                }
+            });
+        });
+        
+        // Form submission handler
+        document.getElementById('exportForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const selection = document.querySelector('input[name="selection"]:checked').value;
+            const group = document.getElementById('groupSelect').value;
+            
+            // Get selected fields
+            const fields = [];
+            document.querySelectorAll('input[name="fields"]:checked').forEach(checkbox => {
+                fields.push(checkbox.value);
+            });
+            
+            // Build export URL
+            let exportUrl = '{{ url_for("contact.export", format="FORMAT") }}'.replace('FORMAT', format);
+            
+            // Add query parameters
+            const params = new URLSearchParams();
+            
+            if (selection === 'group') {
+                params.append('group', group);
+            }
+            
+            if (fields.length > 0) {
+                params.append('fields', fields.join(','));
+            }
+            
+            if (params.toString()) {
+                exportUrl += '?' + params.toString();
+            }
+            
+            // In a real application, you would fetch export statistics first
+            // For this demo, we'll simulate it
+            simulateExportStats(format, selection, group);
+            
+            // Store the export URL for later use
+            document.getElementById('downloadExport').setAttribute('href', exportUrl);
+        });
+        
+        // Download button click handler
+        document.getElementById('downloadExport').addEventListener('click', function(e) {
+            // In a real application, you might want to track downloads or show a success message
+            setTimeout(() => {
+                document.getElementById('exportStats').style.display = 'none';
+            }, 1000);
+        });
+        
+        // Functions
+        
+        function loadGroups() {
+            fetch('{{ url_for("contact.api_list_groups") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const groupSelect = document.getElementById('groupSelect');
+                    let groupOptionsHtml = '';
+                    
+                    data.groups.forEach(group => {
+                        groupOptionsHtml += `<option value="${group}">${group}</option>`;
+                    });
+                    
+                    if (!groupOptionsHtml) {
+                        groupOptionsHtml = '<option value="default">Default</option>';
+                    }
+                    
+                    groupSelect.innerHTML = groupOptionsHtml;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading groups:', error);
+            });
+        }
+        
+        function simulateExportStats(format, selection, group) {
+            // In a real application, you would fetch this data from the server
+            // For this demo, we'll use simulated data
+            
+            // Simulate API call delay
+            setTimeout(() => {
+                // Show export stats section
+                document.getElementById('exportStats').style.display = 'block';
+                
+                // Scroll to export stats
+                document.getElementById('exportStats').scrollIntoView({ behavior: 'smooth' });
+                
+                // Update stats
+                let totalContacts = Math.floor(Math.random() * 500) + 50; // Random between 50-550
+                let totalGroups = selection === 'group' ? 1 : Math.floor(Math.random() * 10) + 1; // Random between 1-10
+                let fileSize = (totalContacts * 0.2).toFixed(1); // Rough estimate
+                
+                document.getElementById('exportTotalContacts').textContent = totalContacts;
+                document.getElementById('exportTotalGroups').textContent = totalGroups;
+                document.getElementById('exportFileSize').textContent = fileSize + ' KB';
+            }, 1000);
+        }
+    });
+</script>
+{% endblock %}

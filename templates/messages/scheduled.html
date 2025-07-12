@@ -1,0 +1,291 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Scheduled</strong> Messages</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('message.compose') }}" class="btn btn-primary">
+                <i class="align-middle" data-feather="plus"></i> Compose Message
+            </a>
+            <a href="{{ url_for('message.index') }}" class="btn btn-secondary">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Messages
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Scheduled Messages</h5>
+                </div>
+                <div class="card-body">
+                    {% if scheduled_messages %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Recipients</th>
+                                    <th>Message</th>
+                                    <th>Scheduled For</th>
+                                    <th>Created At</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for message in scheduled_messages %}
+                                <tr>
+                                    <td>{{ message.id }}</td>
+                                    <td>
+                                        {% if message.recipient_type == 'group' %}
+                                            <span class="badge bg-primary">Group: {{ message.group_name }}</span>
+                                        {% elif message.recipient_type == 'contact' %}
+                                            <span class="badge bg-info">Contact: {{ message.contact_name }}</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">Custom: {{ message.recipients_count }} recipients</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ message.content|truncate(50) }}</td>
+                                    <td>{{ message.scheduled_at }}</td>
+                                    <td>{{ message.created_at }}</td>
+                                    <td>
+                                        <span class="badge bg-warning">Scheduled</span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-sm btn-outline-primary view-message" data-bs-toggle="modal" data-bs-target="#viewMessageModal" data-message-id="{{ message.id }}">
+                                                <i class="align-middle" data-feather="eye"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary edit-message" data-message-id="{{ message.id }}">
+                                                <i class="align-middle" data-feather="edit-2"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger delete-message" data-bs-toggle="modal" data-bs-target="#deleteMessageModal" data-message-id="{{ message.id }}">
+                                                <i class="align-middle" data-feather="trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="align-middle" data-feather="clock" style="width: 48px; height: 48px;"></i>
+                            <h4 class="mt-3">No scheduled messages</h4>
+                            <p>You don't have any messages scheduled for future delivery</p>
+                            <a href="{{ url_for('message.compose') }}?scheduled=true" class="btn btn-primary">
+                                <i class="align-middle" data-feather="plus"></i> Schedule a Message
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Message Modal -->
+    <div class="modal fade" id="viewMessageModal" tabindex="-1" aria-labelledby="viewMessageModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="viewMessageModalLabel">Message Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Message Information</h6>
+                            <table class="table table-sm">
+                                <tr>
+                                    <th>ID:</th>
+                                    <td id="viewMessageId"></td>
+                                </tr>
+                                <tr>
+                                    <th>Created:</th>
+                                    <td id="viewMessageCreated"></td>
+                                </tr>
+                                <tr>
+                                    <th>Scheduled For:</th>
+                                    <td id="viewMessageScheduled"></td>
+                                </tr>
+                                <tr>
+                                    <th>Status:</th>
+                                    <td><span class="badge bg-warning" id="viewMessageStatus">Scheduled</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Recipients</h6>
+                            <div id="viewMessageRecipients">
+                                <!-- Recipients will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row">
+                        <div class="col-12">
+                            <h6>Message Content</h6>
+                            <div class="p-3 border rounded bg-light">
+                                <div id="viewMessageContent"></div>
+                                <div id="viewMessageMedia" class="mt-2 d-none">
+                                    <div class="border-top pt-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="align-middle me-2" data-feather="paperclip"></i>
+                                            <span id="viewMessageMediaName"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="sendNowBtn">Send Now</button>
+                    <button type="button" class="btn btn-warning" id="editScheduleBtn">Edit Schedule</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Message Modal -->
+    <div class="modal fade" id="deleteMessageModal" tabindex="-1" aria-labelledby="deleteMessageModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteMessageModalLabel">Cancel Scheduled Message</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to cancel this scheduled message?</p>
+                    <p class="text-danger">This action cannot be undone!</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <form action="{{ url_for('message.cancel_scheduled') }}" method="POST" id="deleteMessageForm">
+                        <input type="hidden" name="message_id" id="deleteMessageId">
+                        <button type="submit" class="btn btn-danger">Cancel Message</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Schedule Modal -->
+    <div class="modal fade" id="editScheduleModal" tabindex="-1" aria-labelledby="editScheduleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editScheduleModalLabel">Edit Schedule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('message.update_schedule') }}" method="POST" id="editScheduleForm">
+                    <div class="modal-body">
+                        <input type="hidden" name="message_id" id="editScheduleMessageId">
+                        <div class="mb-3">
+                            <label for="newScheduleDate" class="form-label">New Date</label>
+                            <input type="date" class="form-control" id="newScheduleDate" name="schedule_date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newScheduleTime" class="form-label">New Time</label>
+                            <input type="time" class="form-control" id="newScheduleTime" name="schedule_time" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Schedule</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View message details
+        $('.view-message').on('click', function() {
+            const messageId = $(this).data('message-id');
+            
+            // Here you would normally fetch the message details via AJAX
+            // For this example, we'll use placeholder data
+            $('#viewMessageId').text(messageId);
+            $('#viewMessageCreated').text('2023-06-15 10:30 AM');
+            $('#viewMessageScheduled').text('2023-06-20 09:00 AM');
+            $('#viewMessageStatus').text('Scheduled');
+            
+            // Set recipients
+            $('#viewMessageRecipients').html(
+                '<div class="alert alert-info">This message will be sent to Group: Customers (25 contacts)</div>'
+            );
+            
+            // Set message content
+            $('#viewMessageContent').html(
+                'Hello {name}, this is a scheduled message that will be sent automatically. ' +
+                'Please let us know if you have any questions about our services.'
+            );
+            
+            // Check if there's media
+            const hasMedia = Math.random() > 0.5; // Randomly show/hide media for demo
+            if (hasMedia) {
+                $('#viewMessageMedia').removeClass('d-none');
+                $('#viewMessageMediaName').text('product_brochure.pdf');
+            } else {
+                $('#viewMessageMedia').addClass('d-none');
+            }
+        });
+
+        // Delete message
+        $('.delete-message').on('click', function() {
+            const messageId = $(this).data('message-id');
+            $('#deleteMessageId').val(messageId);
+        });
+
+        // Edit message button
+        $('.edit-message').on('click', function() {
+            const messageId = $(this).data('message-id');
+            window.location.href = `{{ url_for('message.compose') }}?edit=${messageId}`;
+        });
+
+        // Send now button
+        $('#sendNowBtn').on('click', function() {
+            const messageId = $('#viewMessageId').text();
+            
+            // Here you would normally send an AJAX request to send the message immediately
+            alert(`Message ${messageId} will be sent immediately`);
+            
+            // Close the modal
+            $('#viewMessageModal').modal('hide');
+        });
+
+        // Edit schedule button
+        $('#editScheduleBtn').on('click', function() {
+            const messageId = $('#viewMessageId').text();
+            $('#editScheduleMessageId').val(messageId);
+            
+            // Set default values for date and time inputs
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
+            
+            $('#newScheduleDate').val(dateStr);
+            $('#newScheduleTime').val(timeStr);
+            
+            // Close view modal and open edit schedule modal
+            $('#viewMessageModal').modal('hide');
+            $('#editScheduleModal').modal('show');
+        });
+    });
+</script>
+{% endblock %}

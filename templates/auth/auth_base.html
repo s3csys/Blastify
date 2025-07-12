@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<meta name="description" content="Blastify Dashboard - WhatsApp Messaging Platform">
+	<meta name="author" content="Blastify">
+
+	<link rel="preconnect" href="https://fonts.gstatic.com">
+	<link rel="shortcut icon" href="{{ url_for('static', filename='img/icons/icon-48x48.png') }}" />
+
+	<title>{% block title %}Blastify{% endblock %}</title>
+
+	<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
+	<link href="{{ url_for('static', filename='css/theme-variables.css') }}" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+	
+	<!-- Theme-specific fonts will be loaded dynamically by the theme-switcher.js -->
+</head>
+
+<body class="theme-{{ session.get('theme', 'default') }}">
+	<main>
+		{% block content %}{% endblock %}
+	</main>
+
+	<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+	<script>
+		// Initialize theme system when page loads
+		document.addEventListener('DOMContentLoaded', function() {
+			// Get saved theme or use default
+			const savedTheme = localStorage.getItem('theme') || 'default';
+			
+			// Apply the theme
+			if (window.themeSystem && window.themeSystem.applyTheme) {
+				window.themeSystem.applyTheme(savedTheme);
+			}
+		});
+	</script>
+	{% block scripts %}{% endblock %}
+</body>
+
+</html>

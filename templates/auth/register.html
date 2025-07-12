@@ -1,0 +1,115 @@
+{% extends "auth/auth_base.html" %}
+
+{% block title %}Register - Blastify{% endblock %}
+
+{% block content %}
+<div class="container d-flex flex-column">
+    <div class="row vh-100">
+        <div class="col-sm-10 col-md-8 col-lg-6 mx-auto d-table h-100">
+            <div class="d-table-cell align-middle">
+
+                <div class="text-center mt-4">
+                    <h1 class="h2">Get started</h1>
+                    <p class="lead">
+                        Create your account to start using Blastify
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="m-sm-4">
+                            <form method="POST" action="{{ url_for('auth.register') }}">
+                                {{ form.csrf_token }}
+                                <div class="mb-3">
+                                    <label class="form-label">Username</label>
+                                    {{ form.username(class="form-control form-control-lg", placeholder="Enter your username") }}
+                                    {% if form.username.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.username.errors %}
+                                        <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Email</label>
+                                    {{ form.email(class="form-control form-control-lg", placeholder="Enter your email") }}
+                                    {% if form.email.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.email.errors %}
+                                        <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Password</label>
+                                    {{ form.password(class="form-control form-control-lg", placeholder="Enter password") }}
+                                    {% if form.password.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.password.errors %}
+                                        <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Confirm Password</label>
+                                    {{ form.confirm_password(class="form-control form-control-lg", placeholder="Confirm password") }}
+                                    {% if form.confirm_password.errors %}
+                                    <div class="invalid-feedback d-block">
+                                        {% for error in form.confirm_password.errors %}
+                                        <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        {{ form.terms(class="form-check-input") }}
+                                        <label class="form-check-label" for="terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+                                        {% if form.terms.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {% for error in form.terms.errors %}
+                                            <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="text-center mt-3">
+                                    {{ form.submit(class="btn btn-lg btn-primary") }}
+                                </div>
+                                {% with messages = get_flashed_messages(with_categories=true) %}
+                                    {% if messages %}
+                                        {% for category, message in messages %}
+                                            <div class="alert alert-{{ category }} mt-3">
+                                                {{ message }}
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endwith %}
+                            </form>
+                            <div class="text-center mt-3">
+                                <p>Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Initialize feather icons
+        if (window.feather) {
+            feather.replace();
+        }
+    });
+</script>
+{% endblock %}

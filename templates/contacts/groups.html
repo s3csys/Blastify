@@ -1,0 +1,1096 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0" id="contacts-groups-container">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Contact</strong> Groups</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('contact.index') }}" class="btn btn-secondary">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Contacts
+            </a>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGroupModal">
+                <i class="align-middle" data-feather="plus"></i> Add Group
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 d-flex">
+            <div class="card theme-card flex-fill">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Manage Contact Groups</h5>
+                    <div class="input-group" style="width: 250px;">
+                        <input type="text" class="form-control" placeholder="Search groups..." id="searchGroups">
+                        <button class="btn btn-outline-secondary" type="button" id="searchGroupsBtn">
+                            <i class="align-middle" data-feather="search"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover my-0" id="groupsTable">
+                            <thead>
+                                <tr>
+                                    <th>Group Name</th>
+                                    <th>Contacts</th>
+                                    <th>Created</th>
+                                    <th>Last Updated</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Groups will be loaded dynamically -->
+                                <tr id="loadingRow">
+                                    <td colspan="5" class="text-center">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div>
+                            <span id="groupCount">0</span> groups
+                        </div>
+                        <nav>
+                            <ul class="pagination" id="groupsPagination">
+                                <!-- Pagination will be generated dynamically -->
+                            </ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4" id="groupDetailsSection" style="display: none;">
+        <div class="col-12">
+            <div class="card theme-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Group Details: <span id="groupDetailName"></span></h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" id="editGroupBtn">
+                            <i class="align-middle" data-feather="edit-2"></i> Edit Group
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" id="deleteGroupBtn">
+                            <i class="align-middle" data-feather="trash-2"></i> Delete Group
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card bg-light border">
+                                <div class="card-body">
+                                    <h6 class="card-title">Group Statistics</h6>
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="flex-shrink-0">
+                                            <div class="stat-icon bg-primary">
+                                                <i class="align-middle" data-feather="users"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h4 class="mb-0" id="groupContactCount">0</h4>
+                                            <p class="mb-0">Contacts</p>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-3">
+                                        <div class="flex-shrink-0">
+                                            <div class="stat-icon bg-info">
+                                                <i class="align-middle" data-feather="mail"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h4 class="mb-0" id="groupMessageCount">0</h4>
+                                            <p class="mb-0">Messages Sent</p>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="stat-icon bg-success">
+                                                <i class="align-middle" data-feather="calendar"></i>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1 ms-3">
+                                            <h4 class="mb-0" id="groupCreatedDate">-</h4>
+                                            <p class="mb-0">Created On</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card border h-100">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="card-title mb-0">Group Contacts</h6>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-secondary" id="addContactsToGroupBtn">
+                                            <i class="align-middle" data-feather="user-plus"></i> Add Contacts
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="removeContactsFromGroupBtn">
+                                            <i class="align-middle" data-feather="user-minus"></i> Remove Contacts
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover mb-0" id="groupContactsTable">
+                                            <thead>
+                                                <tr>
+                                                    <th>
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" id="selectAllGroupContacts">
+                                                            <label class="form-check-label" for="selectAllGroupContacts"></label>
+                                                        </div>
+                                                    </th>
+                                                    <th>Name</th>
+                                                    <th>Phone</th>
+                                                    <th>Email</th>
+                                                    <th>Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <!-- Group contacts will be loaded dynamically -->
+                                                <tr id="loadingGroupContactsRow">
+                                                    <td colspan="5" class="text-center">
+                                                        <div class="spinner-border text-primary" role="status">
+                                                            <span class="visually-hidden">Loading...</span>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card-footer d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span id="groupContactsCount">0</span> contacts in this group
+                                    </div>
+                                    <div>
+                                        <button class="btn btn-sm btn-primary" id="sendMessageToGroupBtn">
+                                            <i class="align-middle" data-feather="message-square"></i> Send Message to Group
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Group Modal -->
+<div class="modal fade theme-modal" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addGroupModalLabel">Add New Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addGroupForm">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="groupName" name="name" required>
+                        <div class="form-text">Group name must be unique and cannot be empty.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="groupDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="groupDescription" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveGroupBtn">Save Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Group Modal -->
+<div class="modal fade theme-modal" id="editGroupModal" tabindex="-1" aria-labelledby="editGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editGroupModalLabel">Edit Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editGroupForm">
+                    <input type="hidden" id="editGroupId" name="id">
+                    <div class="mb-3">
+                        <label for="editGroupName" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="editGroupName" name="name" required>
+                        <div class="form-text">Group name must be unique and cannot be empty.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editGroupDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="editGroupDescription" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="updateGroupBtn">Update Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Group Confirmation Modal -->
+<div class="modal fade theme-modal" id="deleteGroupModal" tabindex="-1" aria-labelledby="deleteGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteGroupModalLabel">Delete Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the group <strong id="deleteGroupName"></strong>?</p>
+                <p class="text-danger">This action cannot be undone. Contacts in this group will not be deleted, but they will no longer be associated with this group.</p>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirmDeleteGroup">
+                    <label class="form-check-label" for="confirmDeleteGroup">
+                        I understand that this action cannot be undone.
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteGroupBtn" disabled>Delete Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Contacts to Group Modal -->
+<div class="modal fade theme-modal" id="addContactsToGroupModal" tabindex="-1" aria-labelledby="addContactsToGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addContactsToGroupModalLabel">Add Contacts to Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="searchAvailableContacts" placeholder="Search contacts...">
+                </div>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-hover" id="availableContactsTable">
+                        <thead>
+                            <tr>
+                                <th>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="selectAllAvailableContacts">
+                                        <label class="form-check-label" for="selectAllAvailableContacts"></label>
+                                    </div>
+                                </th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Current Groups</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Available contacts will be loaded dynamically -->
+                            <tr id="loadingAvailableContactsRow">
+                                <td colspan="5" class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span id="selectedContactsCount" class="me-auto">0 contacts selected</span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmAddContactsBtn">Add to Group</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Message to Group Modal -->
+<div class="modal fade" id="sendMessageToGroupModal" tabindex="-1" aria-labelledby="sendMessageToGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendMessageToGroupModalLabel">Send Message to Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>You are about to send a message to <strong id="messageGroupName"></strong> group with <strong id="messageGroupContactCount">0</strong> contacts.</p>
+                <form id="sendGroupMessageForm">
+                    <input type="hidden" id="messageGroupId" name="group_id">
+                    <div class="mb-3">
+                        <label for="messageTemplate" class="form-label">Message Template</label>
+                        <select class="form-select" id="messageTemplate" name="template_id">
+                            <option value="">Select a template or type a custom message</option>
+                            <!-- Templates will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="messageContent" class="form-label">Message Content</label>
+                        <textarea class="form-control" id="messageContent" name="content" rows="5" required></textarea>
+                        <div class="form-text">
+                            You can use the following variables in your message:
+                            <code>{name}</code>, <code>{phone}</code>, <code>{email}</code>, <code>{group}</code>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="scheduleSend" class="form-label">Schedule Send</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="enableSchedule">
+                            <label class="form-check-label" for="enableSchedule">Schedule this message</label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="scheduleTimeContainer" style="display: none;">
+                        <label for="scheduleTime" class="form-label">Send Time</label>
+                        <input type="datetime-local" class="form-control" id="scheduleTime" name="schedule_time">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sendGroupMessageBtn">Send Message</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+    
+    .stat-icon svg {
+        width: 24px;
+        height: 24px;
+    }
+    
+    .table-hover tbody tr:hover {
+        cursor: pointer;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Feather icons
+        feather.replace();
+        
+        // Apply theme-specific adjustments
+        applyThemeAdjustments();
+        
+        // Load groups
+        loadGroups();
+        
+        // Group row click handler
+        document.getElementById('groupsTable').addEventListener('click', function(e) {
+            const target = e.target.closest('tr');
+            if (target && !target.id.includes('loading')) {
+                const groupId = target.getAttribute('data-group-id');
+                if (groupId) {
+                    loadGroupDetails(groupId);
+                }
+            }
+        });
+        
+        // Search groups handler
+        document.getElementById('searchGroupsBtn').addEventListener('click', function() {
+            const searchTerm = document.getElementById('searchGroups').value;
+            loadGroups(searchTerm);
+        });
+        
+        document.getElementById('searchGroups').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                const searchTerm = e.target.value;
+                loadGroups(searchTerm);
+            }
+        });
+        
+        // Add group form handler
+        document.getElementById('saveGroupBtn').addEventListener('click', function() {
+            const form = document.getElementById('addGroupForm');
+            const formData = new FormData(form);
+            
+            // Validate form
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Convert FormData to JSON
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            // Send request to create group
+            fetch('/contact/groups/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal and reload groups
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('addGroupModal'));
+                    modal.hide();
+                    form.reset();
+                    loadGroups();
+                    
+                    // Show success message
+                    showAlert('success', 'Group created successfully!');
+                } else {
+                    showAlert('danger', data.error || 'Failed to create group.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while creating the group.');
+            });
+        });
+        
+        // Edit group button handler
+        document.getElementById('editGroupBtn').addEventListener('click', function() {
+            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            if (groupId) {
+                // Fetch group details and populate edit form
+                fetch(`/contact/groups/${groupId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('editGroupId').value = data.group.id;
+                        document.getElementById('editGroupName').value = data.group.name;
+                        document.getElementById('editGroupDescription').value = data.group.description || '';
+                        
+                        // Show edit modal
+                        const modal = new bootstrap.Modal(document.getElementById('editGroupModal'));
+                        modal.show();
+                    } else {
+                        showAlert('danger', data.error || 'Failed to load group details.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while loading group details.');
+                });
+            }
+        });
+        
+        // Update group button handler
+        document.getElementById('updateGroupBtn').addEventListener('click', function() {
+            const form = document.getElementById('editGroupForm');
+            const formData = new FormData(form);
+            
+            // Validate form
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Convert FormData to JSON
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            // Send request to update group
+            fetch(`/contact/groups/edit/${data.id}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal and reload groups
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editGroupModal'));
+                    modal.hide();
+                    loadGroups();
+                    loadGroupDetails(document.getElementById('editGroupId').value);
+                    
+                    // Show success message
+                    showAlert('success', 'Group updated successfully!');
+                } else {
+                    showAlert('danger', data.error || 'Failed to update group.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while updating the group.');
+            });
+        });
+        
+        // Delete group button handler
+        document.getElementById('deleteGroupBtn').addEventListener('click', function() {
+            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            const groupName = document.getElementById('groupDetailName').textContent;
+            
+            if (groupId) {
+                document.getElementById('deleteGroupName').textContent = groupName;
+                document.getElementById('confirmDeleteGroup').checked = false;
+                document.getElementById('confirmDeleteGroupBtn').disabled = true;
+                
+                // Show delete confirmation modal
+                const modal = new bootstrap.Modal(document.getElementById('deleteGroupModal'));
+                modal.show();
+            }
+        });
+        
+        // Delete confirmation checkbox handler
+        document.getElementById('confirmDeleteGroup').addEventListener('change', function() {
+            document.getElementById('confirmDeleteGroupBtn').disabled = !this.checked;
+        });
+        
+        // Confirm delete group button handler
+        document.getElementById('confirmDeleteGroupBtn').addEventListener('click', function() {
+            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            
+            if (groupId) {
+                // Send request to delete group
+                fetch(`/contact/groups/delete/${groupId}`, {
+                    method: 'POST'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Close modal and reload groups
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteGroupModal'));
+                        modal.hide();
+                        loadGroups();
+                        
+                        // Hide group details section
+                        document.getElementById('groupDetailsSection').style.display = 'none';
+                        
+                        // Show success message
+                        showAlert('success', 'Group deleted successfully!');
+                    } else {
+                        showAlert('danger', data.error || 'Failed to delete group.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while deleting the group.');
+                });
+            }
+        });
+        
+        // Add contacts to group button handler
+        document.getElementById('addContactsToGroupBtn').addEventListener('click', function() {
+            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            
+            if (groupId) {
+                // Load available contacts
+                loadAvailableContacts(groupId);
+                
+                // Show add contacts modal
+                const modal = new bootstrap.Modal(document.getElementById('addContactsToGroupModal'));
+                modal.show();
+            }
+        });
+        
+        // Select all available contacts checkbox handler
+        document.getElementById('selectAllAvailableContacts').addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('#availableContactsTable tbody input[type="checkbox"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+            
+            updateSelectedContactsCount();
+        });
+        
+        // Available contacts table checkbox change handler
+        document.getElementById('availableContactsTable').addEventListener('change', function(e) {
+            if (e.target.type === 'checkbox') {
+                updateSelectedContactsCount();
+            }
+        });
+        
+        // Confirm add contacts button handler
+        document.getElementById('confirmAddContactsBtn').addEventListener('click', function() {
+            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            const checkboxes = document.querySelectorAll('#availableContactsTable tbody input[type="checkbox"]:checked');
+            
+            if (groupId && checkboxes.length > 0) {
+                const contactIds = Array.from(checkboxes).map(checkbox => {
+                    return checkbox.closest('tr').getAttribute('data-contact-id');
+                });
+                
+                // Send request to add contacts to group
+                fetch(`/contact/groups/${groupId}/add_contacts`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ contact_ids: contactIds })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Close modal and reload group details
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('addContactsToGroupModal'));
+                        modal.hide();
+                        loadGroupDetails(groupId);
+                        
+                        // Show success message
+                        showAlert('success', `Added ${contactIds.length} contacts to the group!`);
+                    } else {
+                        showAlert('danger', data.error || 'Failed to add contacts to group.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while adding contacts to the group.');
+                });
+            }
+        });
+        
+        // Send message to group button handler
+        document.getElementById('sendMessageToGroupBtn').addEventListener('click', function() {
+            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            const groupName = document.getElementById('groupDetailName').textContent;
+            const contactCount = document.getElementById('groupContactCount').textContent;
+            
+            if (groupId) {
+                document.getElementById('messageGroupId').value = groupId;
+                document.getElementById('messageGroupName').textContent = groupName;
+                document.getElementById('messageGroupContactCount').textContent = contactCount;
+                
+                // Load message templates
+                loadMessageTemplates();
+                
+                // Show send message modal
+                const modal = new bootstrap.Modal(document.getElementById('sendMessageToGroupModal'));
+                modal.show();
+            }
+        });
+        
+        // Message template change handler
+        document.getElementById('messageTemplate').addEventListener('change', function() {
+            const templateId = this.value;
+            
+            if (templateId) {
+                // Load template content
+                fetch(`/message/templates/${templateId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('messageContent').value = data.template.content;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+        });
+        
+        // Schedule switch handler
+        document.getElementById('enableSchedule').addEventListener('change', function() {
+            const scheduleTimeContainer = document.getElementById('scheduleTimeContainer');
+            scheduleTimeContainer.style.display = this.checked ? 'block' : 'none';
+            
+            if (this.checked) {
+                // Set default schedule time to 1 hour from now
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                const dateTimeString = now.toISOString().slice(0, 16);
+                document.getElementById('scheduleTime').value = dateTimeString;
+            }
+        });
+        
+        // Send group message button handler
+        document.getElementById('sendGroupMessageBtn').addEventListener('click', function() {
+            const form = document.getElementById('sendGroupMessageForm');
+            const formData = new FormData(form);
+            
+            // Validate form
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            // Convert FormData to JSON
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            // Add schedule information if enabled
+            if (document.getElementById('enableSchedule').checked) {
+                data.scheduled = true;
+            } else {
+                data.scheduled = false;
+                delete data.schedule_time;
+            }
+            
+            // Send request to send message to group
+            fetch('/message/send_to_group', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('sendMessageToGroupModal'));
+                    modal.hide();
+                    form.reset();
+                    
+                    // Show success message
+                    if (data.scheduled) {
+                        showAlert('success', 'Message scheduled successfully!');
+                    } else {
+                        showAlert('success', 'Message sent successfully!');
+                    }
+                } else {
+                    showAlert('danger', data.error || 'Failed to send message.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while sending the message.');
+            });
+        });
+        
+        // Functions
+        
+        function loadGroups(searchTerm = '') {
+            // Show loading row
+            document.getElementById('loadingRow').style.display = 'table-row';
+            
+            // Build URL with search parameter if provided
+            let url = '/contact/api/list_groups';
+            if (searchTerm) {
+                url += `?search=${encodeURIComponent(searchTerm)}`;
+            }
+            
+            // Fetch groups
+            fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const tableBody = document.getElementById('groupsTable').getElementsByTagName('tbody')[0];
+                    const groupCount = document.getElementById('groupCount');
+                    
+                    // Clear table body except loading row
+                    Array.from(tableBody.children).forEach(child => {
+                        if (child.id !== 'loadingRow') {
+                            tableBody.removeChild(child);
+                        }
+                    });
+                    
+                    // Hide loading row
+                    document.getElementById('loadingRow').style.display = 'none';
+                    
+                    // Update group count
+                    groupCount.textContent = data.groups.length;
+                    
+                    // Add groups to table
+                    if (data.groups.length > 0) {
+                        data.groups.forEach(group => {
+                            const row = tableBody.insertRow();
+                            row.setAttribute('data-group-id', group.id);
+                            
+                            row.insertCell(0).innerHTML = `<strong>${group.name}</strong>`;
+                            row.insertCell(1).textContent = group.contact_count || 0;
+                            row.insertCell(2).textContent = formatDate(group.created_at);
+                            row.insertCell(3).textContent = formatDate(group.updated_at);
+                            
+                            const actionsCell = row.insertCell(4);
+                            actionsCell.innerHTML = `
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary view-group-btn" data-group-id="${group.id}">
+                                        <i class="align-middle" data-feather="eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary edit-group-btn" data-group-id="${group.id}">
+                                        <i class="align-middle" data-feather="edit-2"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-group-btn" data-group-id="${group.id}">
+                                        <i class="align-middle" data-feather="trash-2"></i>
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        
+                        // Re-initialize Feather icons
+                        feather.replace();
+                    } else {
+                        const row = tableBody.insertRow();
+                        const cell = row.insertCell(0);
+                        cell.colSpan = 5;
+                        cell.className = 'text-center';
+                        cell.textContent = searchTerm ? 'No groups found matching your search.' : 'No groups found. Create your first group!';
+                    }
+                } else {
+                    showAlert('danger', data.error || 'Failed to load groups.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while loading groups.');
+                document.getElementById('loadingRow').style.display = 'none';
+            });
+        }
+        
+        function loadGroupDetails(groupId) {
+            // Show group details section
+            document.getElementById('groupDetailsSection').style.display = 'block';
+            
+            // Fetch group details
+            fetch(`/contact/groups/${groupId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const group = data.group;
+                    
+                    // Update group details
+                    document.getElementById('groupDetailName').textContent = group.name;
+                    document.getElementById('groupDetailName').setAttribute('data-group-id', group.id);
+                    document.getElementById('groupContactCount').textContent = group.contact_count || 0;
+                    document.getElementById('groupMessageCount').textContent = group.message_count || 0;
+                    document.getElementById('groupCreatedDate').textContent = formatDate(group.created_at);
+                    
+                    // Load group contacts
+                    loadGroupContacts(groupId);
+                    
+                    // Scroll to group details section
+                    document.getElementById('groupDetailsSection').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    showAlert('danger', data.error || 'Failed to load group details.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while loading group details.');
+            });
+        }
+        
+        function loadGroupContacts(groupId) {
+            // Show loading row
+            document.getElementById('loadingGroupContactsRow').style.display = 'table-row';
+            
+            // Fetch group contacts
+            fetch(`/contact/groups/${groupId}/contacts`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const tableBody = document.getElementById('groupContactsTable').getElementsByTagName('tbody')[0];
+                    const contactsCount = document.getElementById('groupContactsCount');
+                    
+                    // Clear table body except loading row
+                    Array.from(tableBody.children).forEach(child => {
+                        if (child.id !== 'loadingGroupContactsRow') {
+                            tableBody.removeChild(child);
+                        }
+                    });
+                    
+                    // Hide loading row
+                    document.getElementById('loadingGroupContactsRow').style.display = 'none';
+                    
+                    // Update contacts count
+                    contactsCount.textContent = data.contacts.length;
+                    
+                    // Add contacts to table
+                    if (data.contacts.length > 0) {
+                        data.contacts.forEach(contact => {
+                            const row = tableBody.insertRow();
+                            row.setAttribute('data-contact-id', contact.id);
+                            
+                            const checkboxCell = row.insertCell(0);
+                            checkboxCell.innerHTML = `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="${contact.id}">
+                                    <label class="form-check-label"></label>
+                                </div>
+                            `;
+                            
+                            row.insertCell(1).textContent = contact.name;
+                            row.insertCell(2).textContent = contact.phone;
+                            row.insertCell(3).textContent = contact.email || '-';
+                            
+                            const actionsCell = row.insertCell(4);
+                            actionsCell.innerHTML = `
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="window.location.href='/contact/edit/${contact.id}'">
+                                        <i class="align-middle" data-feather="edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger remove-contact-btn" data-contact-id="${contact.id}">
+                                        <i class="align-middle" data-feather="user-minus"></i>
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        
+                        // Re-initialize Feather icons
+                        feather.replace();
+                    } else {
+                        const row = tableBody.insertRow();
+                        const cell = row.insertCell(0);
+                        cell.colSpan = 5;
+                        cell.className = 'text-center';
+                        cell.textContent = 'No contacts in this group. Add contacts to get started!';
+                    }
+                } else {
+                    showAlert('danger', data.error || 'Failed to load group contacts.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while loading group contacts.');
+                document.getElementById('loadingGroupContactsRow').style.display = 'none';
+            });
+        }
+        
+        function loadAvailableContacts(groupId) {
+            // Show loading row
+            document.getElementById('loadingAvailableContactsRow').style.display = 'table-row';
+            
+            // Fetch available contacts
+            fetch(`/contact/api/list?exclude_group=${groupId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const tableBody = document.getElementById('availableContactsTable').getElementsByTagName('tbody')[0];
+                    
+                    // Clear table body except loading row
+                    Array.from(tableBody.children).forEach(child => {
+                        if (child.id !== 'loadingAvailableContactsRow') {
+                            tableBody.removeChild(child);
+                        }
+                    });
+                    
+                    // Hide loading row
+                    document.getElementById('loadingAvailableContactsRow').style.display = 'none';
+                    
+                    // Add contacts to table
+                    if (data.contacts.length > 0) {
+                        data.contacts.forEach(contact => {
+                            const row = tableBody.insertRow();
+                            row.setAttribute('data-contact-id', contact.id);
+                            
+                            const checkboxCell = row.insertCell(0);
+                            checkboxCell.innerHTML = `
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="${contact.id}">
+                                    <label class="form-check-label"></label>
+                                </div>
+                            `;
+                            
+                            row.insertCell(1).textContent = contact.name;
+                            row.insertCell(2).textContent = contact.phone;
+                            row.insertCell(3).textContent = contact.email || '-';
+                            row.insertCell(4).textContent = contact.groups.join(', ') || 'None';
+                        });
+                    } else {
+                        const row = tableBody.insertRow();
+                        const cell = row.insertCell(0);
+                        cell.colSpan = 5;
+                        cell.className = 'text-center';
+                        cell.textContent = 'No available contacts to add to this group.';
+                    }
+                    
+                    // Reset selected contacts count
+                    document.getElementById('selectedContactsCount').textContent = '0 contacts selected';
+                    document.getElementById('selectAllAvailableContacts').checked = false;
+                } else {
+                    showAlert('danger', data.error || 'Failed to load available contacts.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while loading available contacts.');
+                document.getElementById('loadingAvailableContactsRow').style.display = 'none';
+            });
+        }
+        
+        function loadMessageTemplates() {
+            // Fetch message templates
+            fetch('/message/templates')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const templateSelect = document.getElementById('messageTemplate');
+                    
+                    // Clear existing options except the first one
+                    while (templateSelect.options.length > 1) {
+                        templateSelect.remove(1);
+                    }
+                    
+                    // Add templates to select
+                    if (data.templates.length > 0) {
+                        data.templates.forEach(template => {
+                            const option = document.createElement('option');
+                            option.value = template.id;
+                            option.textContent = template.name;
+                            templateSelect.appendChild(option);
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function updateSelectedContactsCount() {
+            const checkboxes = document.querySelectorAll('#availableContactsTable tbody input[type="checkbox"]:checked');
+            document.getElementById('selectedContactsCount').textContent = `${checkboxes.length} contacts selected`;
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            
+            const date = new Date(dateString);
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function showAlert(type, message) {
+            // Create alert element
+            const alertElement = document.createElement('div');
+            alertElement.className = `alert alert-${type} alert-dismissible fade show`;
+            alertElement.setAttribute('role', 'alert');
+            alertElement.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            // Add alert to the top of the page
+            const container = document.querySelector('.container-fluid');
+            container.insertBefore(alertElement, container.firstChild);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alertElement);
+                bsAlert.close();
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

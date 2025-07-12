@@ -1,0 +1,222 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Compose</strong> Message</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('message.index') }}" class="btn btn-secondary">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Messages
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">New Message</h5>
+                </div>
+                <div class="card-body">
+                    <form id="composeForm" action="{{ url_for('message.send') }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Recipients</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <select class="form-select" id="recipientType" name="recipient_type">
+                                        <option value="individual">Individual Contacts</option>
+                                        <option value="group">Contact Group</option>
+                                        <option value="custom">Custom Numbers</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6" id="individualContactsContainer">
+                                    <select class="form-select" id="individualContacts" name="individual_contacts[]" multiple>
+                                        {% for contact in contacts %}
+                                        <option value="{{ contact.id }}">{{ contact.name }} ({{ contact.phone }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6" id="contactGroupContainer" style="display: none;">
+                                    <select class="form-select" id="contactGroup" name="contact_group">
+                                        {% for group in groups %}
+                                        <option value="{{ group.id }}">{{ group.name }} ({{ group.contact_count }} contacts)</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6" id="customNumbersContainer" style="display: none;">
+                                    <textarea class="form-control" id="customNumbers" name="custom_numbers" rows="3" placeholder="Enter phone numbers separated by commas"></textarea>
+                                    <small class="form-text text-muted">Format: +1234567890, +0987654321</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Message Template</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <select class="form-select" id="messageTemplate" name="template_id">
+                                        <option value="">Select a template or create a new message</option>
+                                        {% for template in templates %}
+                                        <option value="{{ template.id }}">{{ template.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <button type="button" class="btn btn-outline-primary" id="previewTemplateBtn">
+                                        <i class="align-middle" data-feather="eye"></i> Preview Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Message</label>
+                            <textarea class="form-control" id="messageContent" name="content" rows="5" placeholder="Type your message here..."></textarea>
+                            <small class="form-text text-muted">
+                                Available variables: {name}, {phone}
+                            </small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Media (Optional)</label>
+                            <input type="file" class="form-control" id="messageMedia" name="media">
+                            <small class="form-text text-muted">
+                                Supported formats: JPG, PNG, PDF (max 5MB)
+                            </small>
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="scheduleMessage" name="schedule_message">
+                                <label class="form-check-label" for="scheduleMessage">
+                                    Schedule this message for later
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-3" id="scheduleTimeContainer" style="display: none;">
+                            <label class="form-label">Schedule Time</label>
+                            <input type="datetime-local" class="form-control" id="scheduleTime" name="schedule_time">
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary" id="saveAsDraftBtn">Save as Draft</button>
+                            <button type="submit" class="btn btn-primary">Send Message</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Preview Modal -->
+    <div class="modal fade" id="templatePreviewModal" tabindex="-1" aria-labelledby="templatePreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="templatePreviewModalLabel">Template Preview</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="templatePreviewContent">
+                        <!-- Template preview will be loaded here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="useTemplateBtn">Use This Template</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize select2 for multiple select
+        $('#individualContacts').select2({
+            placeholder: 'Select contacts',
+            allowClear: true
+        });
+
+        // Toggle recipient containers based on selection
+        $('#recipientType').on('change', function() {
+            const selectedType = $(this).val();
+            
+            // Hide all containers first
+            $('#individualContactsContainer, #contactGroupContainer, #customNumbersContainer').hide();
+            
+            // Show the selected container
+            if (selectedType === 'individual') {
+                $('#individualContactsContainer').show();
+            } else if (selectedType === 'group') {
+                $('#contactGroupContainer').show();
+            } else if (selectedType === 'custom') {
+                $('#customNumbersContainer').show();
+            }
+        });
+
+        // Toggle schedule time container
+        $('#scheduleMessage').on('change', function() {
+            if ($(this).is(':checked')) {
+                $('#scheduleTimeContainer').show();
+            } else {
+                $('#scheduleTimeContainer').hide();
+            }
+        });
+
+        // Load template content when a template is selected
+        $('#messageTemplate').on('change', function() {
+            const templateId = $(this).val();
+            
+            if (templateId) {
+                // Here you would fetch the template content via AJAX
+                // For now, we'll use placeholder data
+                $('#messageContent').val('Hello {name}, this is a sample template message.');
+            }
+        });
+
+        // Preview template button
+        $('#previewTemplateBtn').on('click', function() {
+            const templateId = $('#messageTemplate').val();
+            
+            if (templateId) {
+                // Here you would fetch the template preview via AJAX
+                // For now, we'll use placeholder data
+                $('#templatePreviewContent').html(
+                    '<div class="alert alert-info">This is how your message will look:</div>' +
+                    '<div class="card"><div class="card-body">Hello John Doe, this is a sample template message.</div></div>'
+                );
+                
+                $('#templatePreviewModal').modal('show');
+            } else {
+                alert('Please select a template first.');
+            }
+        });
+
+        // Use template button
+        $('#useTemplateBtn').on('click', function() {
+            // Close the modal
+            $('#templatePreviewModal').modal('hide');
+        });
+
+        // Save as draft button
+        $('#saveAsDraftBtn').on('click', function() {
+            // Here you would send an AJAX request to save the draft
+            // For now, we'll just show an alert
+            alert('Message saved as draft!');
+        });
+
+        // Form submission
+        $('#composeForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            // Here you would normally submit the form
+            // For now, we'll just show an alert
+            alert('Message sent successfully!');
+            
+            // Redirect to messages index
+            window.location.href = "{{ url_for('message.index') }}";
+        });
+    });
+</script>
+{% endblock %}

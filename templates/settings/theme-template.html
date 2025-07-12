@@ -1,0 +1,315 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Create New Theme</h1>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Theme Configuration</h5>
+                    <h6 class="card-subtitle text-muted">Define your custom theme properties.</h6>
+                </div>
+                <div class="card-body">
+                    <form id="theme-creator-form">
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Theme Name</label>
+                                    <input type="text" class="form-control" id="theme-name" placeholder="My Custom Theme">
+                                    <small class="form-text text-muted">A unique identifier for your theme (no spaces, use hyphens)</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Display Name</label>
+                                    <input type="text" class="form-control" id="theme-display-name" placeholder="My Custom Theme">
+                                    <small class="form-text text-muted">The name shown to users</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Theme Type</label>
+                                    <select class="form-select" id="theme-type">
+                                        <option value="modern">Modern</option>
+                                        <option value="minimal">Minimal</option>
+                                        <option value="professional">Professional</option>
+                                        <option value="playful">Playful</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Layout</label>
+                                    <select class="form-select" id="theme-layout">
+                                        <option value="sidebar">Sidebar Navigation</option>
+                                        <option value="topnav">Top Navigation</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Color Scheme</label>
+                                    <select class="form-select" id="theme-color-scheme">
+                                        <option value="light">Light</option>
+                                        <option value="dark">Dark</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Primary Color</label>
+                                    <input type="color" class="form-control form-control-color" id="theme-primary-color" value="#3B7DDD">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Font Family</label>
+                                    <select class="form-select" id="theme-font-family">
+                                        <option value="Inter">Inter</option>
+                                        <option value="Poppins">Poppins</option>
+                                        <option value="Roboto">Roboto</option>
+                                        <option value="Montserrat">Montserrat</option>
+                                        <option value="Open Sans">Open Sans</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label class="form-label">Component Style</label>
+                                    <select class="form-select" id="theme-component-style">
+                                        <option value="flat">Flat</option>
+                                        <option value="subtle">Subtle</option>
+                                        <option value="gradient">Gradient</option>
+                                        <option value="shadow">Shadow</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <h5>Theme Preview</h5>
+                                <div class="theme-preview-container p-3 border rounded" id="theme-preview">
+                                    <div class="theme-preview-header p-2 mb-2" id="preview-header">
+                                        <div class="theme-preview-navbar"></div>
+                                    </div>
+                                    <div class="d-flex">
+                                        <div class="theme-preview-sidebar p-2 me-2" id="preview-sidebar" style="width: 20%; height: 150px;"></div>
+                                        <div class="theme-preview-content p-2" style="width: 75%; height: 150px;">
+                                            <div class="theme-preview-card p-2 mb-2" id="preview-card" style="height: 50px;"></div>
+                                            <div class="d-flex mb-2">
+                                                <button class="btn me-2" id="preview-btn-primary">Primary</button>
+                                                <button class="btn btn-secondary me-2">Secondary</button>
+                                                <button class="btn btn-success">Success</button>
+                                            </div>
+                                            <div class="theme-preview-text" id="preview-text">Sample text in the selected font</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-primary" id="generate-theme-btn">Generate Theme</button>
+                                <button type="button" class="btn btn-secondary" id="reset-theme-btn">Reset</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 mt-4" id="code-output-section" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Generated Theme Code</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#css-tab">CSS</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#js-tab">JavaScript</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#html-tab">HTML</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="css-tab" role="tabpanel">
+                            <pre class="mt-3"><code id="css-code"></code></pre>
+                        </div>
+                        <div class="tab-pane fade" id="js-tab" role="tabpanel">
+                            <pre class="mt-3"><code id="js-code"></code></pre>
+                        </div>
+                        <div class="tab-pane fade" id="html-tab" role="tabpanel">
+                            <pre class="mt-3"><code id="html-code"></code></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Elements
+    const themeNameInput = document.getElementById('theme-name');
+    const themeDisplayNameInput = document.getElementById('theme-display-name');
+    const themeTypeSelect = document.getElementById('theme-type');
+    const themeLayoutSelect = document.getElementById('theme-layout');
+    const themeColorSchemeSelect = document.getElementById('theme-color-scheme');
+    const themePrimaryColorInput = document.getElementById('theme-primary-color');
+    const themeFontFamilySelect = document.getElementById('theme-font-family');
+    const themeComponentStyleSelect = document.getElementById('theme-component-style');
+    const generateThemeBtn = document.getElementById('generate-theme-btn');
+    const resetThemeBtn = document.getElementById('reset-theme-btn');
+    const codeOutputSection = document.getElementById('code-output-section');
+    const cssCodeElement = document.getElementById('css-code');
+    const jsCodeElement = document.getElementById('js-code');
+    const htmlCodeElement = document.getElementById('html-code');
+    
+    // Preview elements
+    const previewHeader = document.getElementById('preview-header');
+    const previewSidebar = document.getElementById('preview-sidebar');
+    const previewCard = document.getElementById('preview-card');
+    const previewBtnPrimary = document.getElementById('preview-btn-primary');
+    const previewText = document.getElementById('preview-text');
+    const themePreview = document.getElementById('theme-preview');
+    
+    // Update preview on input change
+    function updatePreview() {
+        const primaryColor = themePrimaryColorInput.value;
+        const colorScheme = themeColorSchemeSelect.value;
+        const fontFamily = themeFontFamilySelect.value;
+        const componentStyle = themeComponentStyleSelect.value;
+        
+        // Update primary button
+        previewBtnPrimary.style.backgroundColor = primaryColor;
+        previewBtnPrimary.style.borderColor = primaryColor;
+        previewBtnPrimary.style.color = '#fff';
+        
+        // Update font
+        previewText.style.fontFamily = fontFamily;
+        
+        // Update color scheme
+        if (colorScheme === 'dark') {
+            themePreview.style.backgroundColor = '#283046';
+            themePreview.style.color = '#d0d2d6';
+            previewHeader.style.backgroundColor = '#161d31';
+            previewHeader.style.color = '#fff';
+            previewSidebar.style.backgroundColor = '#283046';
+            previewSidebar.style.color = '#d0d2d6';
+            previewSidebar.style.borderRight = '1px solid #404656';
+            previewCard.style.backgroundColor = '#283046';
+            previewCard.style.border = '1px solid #404656';
+            previewCard.style.color = '#d0d2d6';
+        } else {
+            themePreview.style.backgroundColor = '#fff';
+            themePreview.style.color = '#212529';
+            previewHeader.style.backgroundColor = '#f8f9fa';
+            previewHeader.style.color = '#212529';
+            previewSidebar.style.backgroundColor = '#222e3c';
+            previewSidebar.style.color = '#fff';
+            previewSidebar.style.borderRight = 'none';
+            previewCard.style.backgroundColor = '#fff';
+            previewCard.style.border = '1px solid rgba(0,0,0,.125)';
+            previewCard.style.color = '#212529';
+        }
+        
+        // Update component style
+        if (componentStyle === 'gradient') {
+            previewBtnPrimary.style.background = `linear-gradient(118deg, ${primaryColor}, ${adjustColor(primaryColor, -20)})`;
+            previewCard.style.boxShadow = '0 4px 24px 0 rgba(0,0,0,.24)';
+        } else if (componentStyle === 'subtle') {
+            previewBtnPrimary.style.background = primaryColor;
+            previewCard.style.borderLeft = `3px solid ${primaryColor}`;
+            previewCard.style.boxShadow = '0 1px 3px rgba(0,0,0,.12)';
+        } else if (componentStyle === 'shadow') {
+            previewBtnPrimary.style.background = primaryColor;
+            previewCard.style.boxShadow = '0 0.5rem 1rem rgba(0,0,0,.15)';
+        } else { // flat
+            previewBtnPrimary.style.background = primaryColor;
+            previewCard.style.boxShadow = 'none';
+        }
+        
+        // Update layout
+        if (themeLayoutSelect.value === 'topnav') {
+            previewSidebar.style.display = 'none';
+            previewHeader.style.height = '50px';
+        } else {
+            previewSidebar.style.display = 'block';
+            previewHeader.style.height = 'auto';
+        }
+    }
+    
+    // Helper function to adjust color brightness
+    function adjustColor(color, amount) {
+        return '#' + color.replace(/^#/, '').replace(/../g, color => {
+            return ('0' + Math.min(255, Math.max(0, parseInt(color, 16) + amount)).toString(16)).substr(-2);
+        });
+    }
+    
+    // Generate theme code
+    function generateThemeCode() {
+        const themeName = themeNameInput.value.trim() || 'custom-theme';
+        const displayName = themeDisplayNameInput.value.trim() || 'Custom Theme';
+        const primaryColor = themePrimaryColorInput.value;
+        const colorScheme = themeColorSchemeSelect.value;
+        const fontFamily = themeFontFamilySelect.value;
+        const componentStyle = themeComponentStyleSelect.value;
+        
+        // Generate CSS
+        const cssCode = `/* ${displayName} Theme */\n` +
+            `body.theme-${themeName} {\n` +
+            `    --primary: ${primaryColor};\n` +
+            `    --font-family: "${fontFamily}", sans-serif;\n` +
+            `    ${colorScheme === 'dark' ? '/* Dark theme variables */\n' +
+            '    --sidebar-bg: #283046;\n' +
+            '    --sidebar-color: #d0d2d6;\n' +
+            '    --navbar-bg: #161d31;\n' +
+            '    --navbar-color: #d0d2d6;\n' +
+            '    --card-border-color: rgba(255, 255, 255, 0.1);\n' +
+            '    --card-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.24);\n' +
+            '    --input-border-color: #404656;\n' +
+            '    --input-bg: #283046;\n' +
+            '    --input-color: #d0d2d6;' : 
+            '/* Light theme variables */\n' +
+            '    --sidebar-bg: #222e3c;\n' +
+            '    --sidebar-color: #fff;\n' +
+            '    --navbar-bg: #fff;\n' +
+            '    --navbar-color: #212529;\n' +
+            '    --card-border-color: rgba(0, 0, 0, 0.125);\n' +
+            '    --card-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.05);\n' +
+            '    --input-border-color: #ced4da;\n' +
+            '    --input-bg: #fff;\n' +
+            '    --input-color: #212529;'}\n` +
+            `}\n\n` +
+            `/* ${displayName} Component Styles */\n` +
+            `body.theme-${themeName} .btn-primary {\n` +
+            `    ${componentStyle === 'gradient' ? 
+                `background: linear-gradient(118deg, ${primaryColor}, ${adjustColor(primaryColor, -20)});\n` +
+                '    border-color: transparent;' : 
+                `background-color: ${primaryColor};\n` +
+                `    border-color: ${primaryColor};`}\n` +
+            `}\n\n` +
+            `body.theme-${themeName} .card {\n` +
+            `    ${componentStyle === 'subtle' ? 
+                `border-left: 3px solid ${primaryColor};\n` +
+                '    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);' : 
+                componentStyle === 'shadow' ? 
+                '    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);' : 
+                componentStyle === 'gradient' ? 
+                '    box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.24);' : 
+                '    box-shadow: none;'}\n` +
+            `}\n`;
+        
+        // Generate JavaScript
+        const jsCode = `// ${displayName} Theme Configuration\n` +
+            `// Add this to the THEMES object in theme-switcher.js\n\n` +
+            `'${themeName}': {\n` +
+            `    name: '${displayName}',\n` +
+            `    primaryColor: '${primaryColor}',\n` +
+            `    fontFamily: '\

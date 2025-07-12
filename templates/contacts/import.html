@@ -1,0 +1,399 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0" id="contacts-import-container">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Import</strong> Contacts</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('contact.index') }}" class="btn btn-secondary">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Contacts
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8 col-xxl-9 d-flex">
+            <div class="card theme-card flex-fill">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Upload Contact File</h5>
+                </div>
+                <div class="card-body">
+                    <form id="importForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="fileInput" class="form-label">Select File</label>
+                            <input class="form-control" type="file" id="fileInput" name="file" accept=".csv,.xml">
+                            <div class="form-text">Supported formats: CSV, XML</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="groupSelect" class="form-label">Assign to Group (Optional)</label>
+                            <select class="form-select" id="groupSelect" name="group">
+                                <option value="default">Default</option>
+                                <!-- Groups will be loaded dynamically -->
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="skipDuplicates" name="skip_duplicates" checked>
+                                <label class="form-check-label" for="skipDuplicates">
+                                    Skip duplicate phone numbers
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary" id="importButton">
+                                <i class="align-middle" data-feather="upload"></i> Import Contacts
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <div class="mt-4" id="importProgress" style="display: none;">
+                        <div class="progress mb-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%" id="importProgressBar"></div>
+                        </div>
+                        <p class="text-center" id="importStatus">Processing...</p>
+                    </div>
+                    
+                    <div class="mt-4" id="importResults" style="display: none;">
+                        <div class="alert alert-success" id="importSuccess" style="display: none;">
+                            <h4 class="alert-heading">Import Successful!</h4>
+                            <p>Successfully imported <span id="importedCount">0</span> contacts.</p>
+                            <hr>
+                            <p class="mb-0">You can now <a href="{{ url_for('contact.index') }}">view your contacts</a>.</p>
+                        </div>
+                        
+                        <div class="alert alert-danger" id="importError" style="display: none;">
+                            <h4 class="alert-heading">Import Failed</h4>
+                            <p id="importErrorMessage"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12 col-lg-4 col-xxl-3 d-flex">
+            <div class="card theme-card flex-fill">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">File Format Guidelines</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6>CSV Format</h6>
+                        <p>Your CSV file should have the following columns:</p>
+                        <ul>
+                            <li><strong>name</strong> (required): Contact name</li>
+                            <li><strong>phone</strong> (required): Phone number with country code</li>
+                            <li><strong>email</strong> (optional): Email address</li>
+                            <li><strong>group</strong> (optional): Contact group</li>
+                            <li><strong>notes</strong> (optional): Additional notes</li>
+                        </ul>
+                        <p>Example:</p>
+                        <pre class="bg-light p-2">name,phone,email,group,notes
+John Doe,+1234567890,john@example.com,clients,VIP client
+Jane Smith,+0987654321,jane@example.com,suppliers,</pre>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6>XML Format</h6>
+                        <p>Your XML file should have the following structure:</p>
+                        <pre class="bg-light p-2">&lt;contacts&gt;
+  &lt;contact&gt;
+    &lt;name&gt;John Doe&lt;/name&gt;
+    &lt;phone&gt;+1234567890&lt;/phone&gt;
+    &lt;email&gt;john@example.com&lt;/email&gt;
+    &lt;group&gt;clients&lt;/group&gt;
+    &lt;notes&gt;VIP client&lt;/notes&gt;
+  &lt;/contact&gt;
+  &lt;contact&gt;
+    &lt;name&gt;Jane Smith&lt;/name&gt;
+    &lt;phone&gt;+0987654321&lt;/phone&gt;
+    &lt;email&gt;jane@example.com&lt;/email&gt;
+    &lt;group&gt;suppliers&lt;/group&gt;
+    &lt;notes&gt;&lt;/notes&gt;
+  &lt;/contact&gt;
+&lt;/contacts&gt;</pre>
+                    </div>
+                    
+                    <div class="alert alert-info">
+                        <i class="align-middle" data-feather="info"></i>
+                        <strong>Note:</strong> Only the <strong>name</strong> and <strong>phone</strong> fields are required. Phone numbers should include the country code (e.g., +1234567890).
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row mt-4" id="previewSection" style="display: none;">
+        <div class="col-12">
+            <div class="card theme-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">File Preview</h5>
+                    <span class="badge bg-primary" id="previewCount">0 contacts</span>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="previewTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Email</th>
+                                    <th>Group</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Preview data will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Apply theme adjustments
+        if (typeof applyThemeAdjustments === 'function') {
+            applyThemeAdjustments();
+        }
+        // Initialize Feather icons
+        feather.replace();
+        
+        // Load contact groups
+        loadGroups();
+        
+        // File input change handler for preview
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                previewFile(file);
+            } else {
+                document.getElementById('previewSection').style.display = 'none';
+            }
+        });
+        
+        // Form submission handler
+        document.getElementById('importForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('fileInput');
+            if (!fileInput.files.length) {
+                alert('Please select a file to import.');
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            // Add group if selected
+            const groupSelect = document.getElementById('groupSelect');
+            if (groupSelect.value !== 'default') {
+                formData.append('group', groupSelect.value);
+            }
+            
+            // Add skip_duplicates option
+            const skipDuplicates = document.getElementById('skipDuplicates').checked;
+            formData.append('skip_duplicates', skipDuplicates);
+            
+            // Show progress
+            document.getElementById('importProgress').style.display = 'block';
+            document.getElementById('importResults').style.display = 'none';
+            document.getElementById('importButton').disabled = true;
+            
+            // Simulate progress (in a real app, you'd get progress from the server)
+            let progress = 0;
+            const progressBar = document.getElementById('importProgressBar');
+            const progressInterval = setInterval(() => {
+                progress += 5;
+                if (progress > 90) {
+                    clearInterval(progressInterval);
+                }
+                progressBar.style.width = progress + '%';
+            }, 300);
+            
+            // Send import request
+            fetch('{{ url_for("contact.import_contacts") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                
+                document.getElementById('importProgress').style.display = 'none';
+                document.getElementById('importResults').style.display = 'block';
+                
+                if (data.success) {
+                    document.getElementById('importSuccess').style.display = 'block';
+                    document.getElementById('importError').style.display = 'none';
+                    document.getElementById('importedCount').textContent = data.imported_count || 0;
+                } else {
+                    document.getElementById('importSuccess').style.display = 'none';
+                    document.getElementById('importError').style.display = 'block';
+                    document.getElementById('importErrorMessage').textContent = data.error || 'An unknown error occurred.';
+                }
+                
+                document.getElementById('importButton').disabled = false;
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                console.error('Error:', error);
+                
+                document.getElementById('importProgress').style.display = 'none';
+                document.getElementById('importResults').style.display = 'block';
+                document.getElementById('importSuccess').style.display = 'none';
+                document.getElementById('importError').style.display = 'block';
+                document.getElementById('importErrorMessage').textContent = 'Network error. Please try again.';
+                
+                document.getElementById('importButton').disabled = false;
+            });
+        });
+        
+        // Functions
+        
+        function loadGroups() {
+            fetch('{{ url_for("contact.api_list_groups") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const groupSelect = document.getElementById('groupSelect');
+                    let groupOptionsHtml = '<option value="default">Default</option>';
+                    
+                    data.groups.forEach(group => {
+                        groupOptionsHtml += `<option value="${group}">${group}</option>`;
+                    });
+                    
+                    groupSelect.innerHTML = groupOptionsHtml;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading groups:', error);
+            });
+        }
+        
+        function previewFile(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const content = e.target.result;
+                const fileExt = file.name.split('.').pop().toLowerCase();
+                
+                let contacts = [];
+                
+                if (fileExt === 'csv') {
+                    contacts = parseCSV(content);
+                } else if (fileExt === 'xml') {
+                    contacts = parseXML(content);
+                }
+                
+                displayPreview(contacts);
+            };
+            
+            reader.readAsText(file);
+        }
+        
+        function parseCSV(content) {
+            const lines = content.split('\n');
+            const result = [];
+            
+            // Get headers
+            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+            
+            // Parse rows
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                
+                const values = lines[i].split(',');
+                const contact = {};
+                
+                headers.forEach((header, index) => {
+                    if (index < values.length) {
+                        contact[header] = values[index].trim();
+                    }
+                });
+                
+                if (contact.name && contact.phone) {
+                    result.push(contact);
+                }
+            }
+            
+            return result;
+        }
+        
+        function parseXML(content) {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(content, 'text/xml');
+            const result = [];
+            
+            const contactNodes = xmlDoc.getElementsByTagName('contact');
+            
+            for (let i = 0; i < contactNodes.length; i++) {
+                const contactNode = contactNodes[i];
+                const contact = {};
+                
+                // Extract fields
+                const fields = ['name', 'phone', 'email', 'group', 'notes'];
+                fields.forEach(field => {
+                    const elements = contactNode.getElementsByTagName(field);
+                    if (elements.length > 0) {
+                        contact[field] = elements[0].textContent.trim();
+                    }
+                });
+                
+                if (contact.name && contact.phone) {
+                    result.push(contact);
+                }
+            }
+            
+            return result;
+        }
+        
+        function displayPreview(contacts) {
+            const previewTable = document.getElementById('previewTable').getElementsByTagName('tbody')[0];
+            const previewCount = document.getElementById('previewCount');
+            
+            // Clear previous preview
+            previewTable.innerHTML = '';
+            
+            // Update count
+            previewCount.textContent = contacts.length + ' contacts';
+            
+            // Display preview (limit to 10 rows)
+            const maxRows = Math.min(contacts.length, 10);
+            
+            for (let i = 0; i < maxRows; i++) {
+                const contact = contacts[i];
+                const row = previewTable.insertRow();
+                
+                row.insertCell(0).textContent = contact.name || '';
+                row.insertCell(1).textContent = contact.phone || '';
+                row.insertCell(2).textContent = contact.email || '';
+                row.insertCell(3).textContent = contact.group || 'default';
+                row.insertCell(4).textContent = contact.notes || '';
+            }
+            
+            // Show preview section
+            document.getElementById('previewSection').style.display = 'block';
+            
+            // If there are more contacts than shown in preview
+            if (contacts.length > maxRows) {
+                const row = previewTable.insertRow();
+                const cell = row.insertCell(0);
+                cell.colSpan = 5;
+                cell.className = 'text-center text-muted';
+                cell.textContent = `... and ${contacts.length - maxRows} more contacts`;
+            }
+        }
+    });
+</script>
+{% endblock %}

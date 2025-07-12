@@ -1,0 +1,141 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <h1 class="h3 mb-3">Settings</h1>
+
+    <div class="row">
+        <div class="col-md-3 col-xl-2">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Settings</h5>
+                </div>
+
+                <div class="list-group list-group-flush" role="tablist">
+                    <a class="list-group-item list-group-item-action active" data-bs-toggle="list" href="#account" role="tab">
+                        Account
+                    </a>
+                    <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#theme" role="tab">
+                        Theme
+                    </a>
+                    <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#security" role="tab">
+                        Security
+                    </a>
+                    <a class="list-group-item list-group-item-action" data-bs-toggle="list" href="#notifications" role="tab">
+                        Notifications
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9 col-xl-10">
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="account" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Account Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <form>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-3">
+                                            <label class="form-label" for="inputUsername">Username</label>
+                                            <input type="text" class="form-control" id="inputUsername" placeholder="Username" value="{{ current_user.username }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label" for="inputEmail">Email</label>
+                                            <input type="email" class="form-control" id="inputEmail" placeholder="Email" value="{{ current_user.email }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            <img alt="User Avatar" src="{{ url_for('static', filename='img/avatars/avatar.jpg') }}" class="rounded-circle img-responsive mt-2" width="128" height="128" />
+                                            <div class="mt-2">
+                                                <button class="btn btn-primary"><i class="fas fa-upload"></i> Upload</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">Save changes</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="theme" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Theme Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Choose your preferred theme:</p>
+                            <div class="mb-3">
+                                <a href="{{ url_for('settings.theme') }}" class="btn btn-primary">Theme Settings</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="security" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Security Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Password</h5>
+                            <form>
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputPasswordCurrent">Current password</label>
+                                    <input type="password" class="form-control" id="inputPasswordCurrent">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputPasswordNew">New password</label>
+                                    <input type="password" class="form-control" id="inputPasswordNew">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputPasswordNew2">Verify password</label>
+                                    <input type="password" class="form-control" id="inputPasswordNew2">
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save changes</button>
+                            </form>
+
+                            <hr>
+                            <h5 class="card-title">Two-Factor Authentication</h5>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="twoFactorSwitch">
+                                <label class="form-check-label" for="twoFactorSwitch">Enable two-factor authentication</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-pane fade" id="notifications" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">Notification Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Email Notifications</h5>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="emailNotificationsSwitch" checked>
+                                <label class="form-check-label" for="emailNotificationsSwitch">Enable email notifications</label>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="messageNotificationsSwitch" checked>
+                                <label class="form-check-label" for="messageNotificationsSwitch">Message delivery notifications</label>
+                            </div>
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="systemNotificationsSwitch">
+                                <label class="form-check-label" for="systemNotificationsSwitch">System notifications</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Save changes</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

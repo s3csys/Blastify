@@ -1,0 +1,51 @@
+{% extends "auth/auth_base.html" %}
+
+{% block title %}Two-Factor Authentication - Blastify{% endblock %}
+
+{% block content %}
+<div class="container d-flex flex-column">
+    <div class="row vh-100">
+        <div class="col-sm-10 col-md-8 col-lg-6 mx-auto d-table h-100">
+            <div class="d-table-cell align-middle">
+
+                <div class="text-center mt-4">
+                    <h1 class="h2">Two-Factor Authentication</h1>
+                    <p class="lead">
+                        Enter the verification code from your authenticator app
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="card-body">
+                        <div class="m-sm-4">
+                            <form method="POST" action="{{ url_for('auth.two_factor') }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="mb-3">
+                                    <label class="form-label">Verification Code</label>
+                                    <input type="text" name="token" class="form-control form-control-lg" placeholder="Enter 6-digit code" required autofocus>
+                                </div>
+                                <div class="text-center mt-3">
+                                    <button type="submit" class="btn btn-lg btn-primary">Verify</button>
+                                </div>
+                                {% with messages = get_flashed_messages(with_categories=true) %}
+                                    {% if messages %}
+                                        {% for category, message in messages %}
+                                            <div class="alert alert-{{ category }} mt-3">
+                                                {{ message }}
+                                            </div>
+                                        {% endfor %}
+                                    {% endif %}
+                                {% endwith %}
+                            </form>
+                            <div class="text-center mt-3">
+                                <p><a href="{{ url_for('auth.logout') }}">Back to login</a></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

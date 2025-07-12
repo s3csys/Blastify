@@ -1,0 +1,1059 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0" id="contacts-details-container">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Contact</strong> Details</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('contact.index') }}" class="btn btn-secondary me-2">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Contacts
+            </a>
+            <button class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#editContactModal">
+                <i class="align-middle" data-feather="edit"></i> Edit Contact
+            </button>
+            <button class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#sendMessageModal">
+                <i class="align-middle" data-feather="message-square"></i> Send Message
+            </button>
+            <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteContactModal">
+                <i class="align-middle" data-feather="trash-2"></i> Delete
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-4 col-xl-3">
+            <div class="card mb-3 theme-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Profile</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="contact-avatar mb-3">
+                        <div class="avatar-placeholder bg-primary rounded-circle">
+                            <span id="contactInitials">{{ contact.name|default('--')|truncate(2, True, '') }}</span>
+                        </div>
+                    </div>
+                    <h5 class="card-title mb-0" id="contactName">{{ contact.name|default('--') }}</h5>
+                    <div class="text-muted mb-2" id="contactGroups">{{ contact.groups|join(', ')|default('No Groups') }}</div>
+
+                    <div>
+                        <a class="btn btn-primary btn-sm" href="#" data-bs-toggle="modal" data-bs-target="#assignGroupModal">
+                            <i class="align-middle" data-feather="tag"></i> Manage Groups
+                        </a>
+                    </div>
+                </div>
+                <hr class="my-0">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Contact Information</h5>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <span class="me-1" data-feather="phone"></span>
+                            <span id="contactPhone">{{ contact.phone|default('--') }}</span>
+                        </li>
+                        <li class="mb-2">
+                            <span class="me-1" data-feather="mail"></span>
+                            <span id="contactEmail">{{ contact.email|default('--') }}</span>
+                        </li>
+                        <li class="mb-2">
+                            <span class="me-1" data-feather="calendar"></span>
+                            <span id="contactCreatedAt">Added on {{ contact.created_at|default('--')|date }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8 col-xl-9">
+            <div class="card theme-card">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#notes-tab">Notes</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#messages-tab">Message History</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#activity-tab">Activity Log</a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="notes-tab" role="tabpanel">
+                            <h5 class="card-title">Notes</h5>
+                            <div class="mb-3">
+                                <div class="notes-content p-3 border rounded" id="contactNotes">
+                                    {% if contact.notes %}
+                                        {{ contact.notes|nl2br }}
+                                    {% else %}
+                                        <p class="text-muted">No notes available for this contact.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editNotesModal">
+                                <i class="align-middle" data-feather="edit-2"></i> Edit Notes
+                            </button>
+                        </div>
+                        <div class="tab-pane fade" id="messages-tab" role="tabpanel">
+                            <h5 class="card-title">Message History</h5>
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Message</th>
+                                            <th>Status</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="messageHistoryTable">
+                                        {% if messages %}
+                                            {% for message in messages %}
+                                                <tr>
+                                                    <td>{{ message.created_at|datetime }}</td>
+                                                    <td>{{ message.content|truncate(50) }}</td>
+                                                    <td>
+                                                        {% if message.status == 'delivered' %}
+                                                            <span class="badge bg-success">Delivered</span>
+                                                        {% elif message.status == 'failed' %}
+                                                            <span class="badge bg-danger">Failed</span>
+                                                        {% elif message.status == 'pending' %}
+                                                            <span class="badge bg-warning">Pending</span>
+                                                        {% elif message.status == 'scheduled' %}
+                                                            <span class="badge bg-info">Scheduled</span>
+                                                        {% else %}
+                                                            <span class="badge bg-secondary">{{ message.status }}</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>
+                                                        <button class="btn btn-sm btn-outline-primary view-message-btn" data-message-id="{{ message.id }}">
+                                                            <i class="align-middle" data-feather="eye"></i>
+                                                        </button>
+                                                        <button class="btn btn-sm btn-outline-secondary resend-message-btn" data-message-id="{{ message.id }}">
+                                                            <i class="align-middle" data-feather="repeat"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="4" class="text-center">No messages sent to this contact yet.</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="activity-tab" role="tabpanel">
+                            <h5 class="card-title">Activity Log</h5>
+                            <div class="timeline mt-2 mb-0">
+                                {% if activities %}
+                                    {% for activity in activities %}
+                                        <div class="timeline-item">
+                                            <i class="align-middle" data-feather="{{ activity.icon }}"></i>
+                                            <span class="timeline-date">{{ activity.timestamp|datetime }}</span>
+                                            <h5 class="timeline-title">{{ activity.title }}</h5>
+                                            <p class="timeline-text">{{ activity.description }}</p>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted">No activity recorded for this contact.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Contact Modal -->
+<div class="modal fade theme-modal" id="editContactModal" tabindex="-1" aria-labelledby="editContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editContactModalLabel">Edit Contact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editContactForm">
+                    <input type="hidden" id="editContactId" name="id" value="{{ contact.id }}">
+                    <div class="mb-3">
+                        <label for="editContactName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editContactName" name="name" value="{{ contact.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editContactPhone" class="form-label">Phone Number</label>
+                        <div class="input-group">
+                            <span class="input-group-text">+</span>
+                            <input type="tel" class="form-control" id="editContactPhone" name="phone" value="{{ contact.phone|replace('+', '') }}" required placeholder="Country code and number">
+                        </div>
+                        <div class="form-text">Include country code without the + sign (e.g., 1234567890)</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editContactEmail" class="form-label">Email (Optional)</label>
+                        <input type="email" class="form-control" id="editContactEmail" name="email" value="{{ contact.email }}">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditContactBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Notes Modal -->
+<div class="modal fade theme-modal" id="editNotesModal" tabindex="-1" aria-labelledby="editNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editNotesModalLabel">Edit Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editNotesForm">
+                    <div class="mb-3">
+                        <label for="editContactNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="editContactNotes" name="notes" rows="6">{{ contact.notes }}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveNotesBtn">Save Notes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assign Group Modal -->
+<div class="modal fade theme-modal" id="assignGroupModal" tabindex="-1" aria-labelledby="assignGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignGroupModalLabel">Manage Groups</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Current Groups</label>
+                    <div id="currentGroups" class="mb-3">
+                        {% if contact.groups %}
+                            {% for group in contact.groups %}
+                                <span class="badge bg-primary me-1 mb-1 p-2">
+                                    {{ group }}
+                                    <a href="#" class="text-white ms-1 remove-group" data-group="{{ group }}">
+                                        <i class="align-middle" data-feather="x"></i>
+                                    </a>
+                                </span>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">No groups assigned</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <hr>
+                <form id="assignGroupForm">
+                    <div class="mb-3">
+                        <label for="assignGroupSelect" class="form-label">Add to Group</label>
+                        <select class="form-select" id="assignGroupSelect" name="group">
+                            <option value="" selected disabled>Select a group</option>
+                            <!-- Groups will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="addToGroupBtn">Add to Group</button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Message Modal -->
+<div class="modal fade theme-modal" id="sendMessageModal" tabindex="-1" aria-labelledby="sendMessageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendMessageModalLabel">Send Message</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Send a message to <strong id="messageRecipientName">{{ contact.name }}</strong></p>
+                <form id="sendMessageForm">
+                    <div class="mb-3">
+                        <label for="messageTemplate" class="form-label">Message Template</label>
+                        <select class="form-select" id="messageTemplate" name="template_id">
+                            <option value="">Select a template or type a custom message</option>
+                            <!-- Templates will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="messageContent" class="form-label">Message Content</label>
+                        <textarea class="form-control" id="messageContent" name="content" rows="5" required></textarea>
+                        <div class="form-text">
+                            You can use the following variables in your message:
+                            <code>{name}</code>, <code>{phone}</code>, <code>{email}</code>, <code>{group}</code>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="scheduleSend" class="form-label">Schedule Send</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="enableSchedule">
+                            <label class="form-check-label" for="enableSchedule">Schedule this message</label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="scheduleTimeContainer" style="display: none;">
+                        <label for="scheduleTime" class="form-label">Send Time</label>
+                        <input type="datetime-local" class="form-control" id="scheduleTime" name="schedule_time">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="sendMessageBtn">Send Message</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Message Modal -->
+<div class="modal fade theme-modal" id="viewMessageModal" tabindex="-1" aria-labelledby="viewMessageModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewMessageModalLabel">Message Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Sent Date</label>
+                    <p id="viewMessageDate" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Status</label>
+                    <p id="viewMessageStatus" class="mb-0"></p>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Message Content</label>
+                    <div id="viewMessageContent" class="p-3 border rounded"></div>
+                </div>
+                <div class="mb-3" id="viewMessageErrorContainer" style="display: none;">
+                    <label class="form-label">Error Details</label>
+                    <div id="viewMessageError" class="p-3 border rounded bg-light"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="resendViewedMessageBtn">Resend</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Contact Modal -->
+<div class="modal fade theme-modal" id="deleteContactModal" tabindex="-1" aria-labelledby="deleteContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteContactModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <strong>{{ contact.name }}</strong>? This action cannot be undone.</p>
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirmDelete">
+                    <label class="form-check-label" for="confirmDelete">
+                        I understand that this action cannot be undone.
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" disabled>Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .contact-avatar {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .avatar-placeholder {
+        width: 100px;
+        height: 100px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: white;
+    }
+    
+    .timeline {
+        position: relative;
+        padding: 0;
+        list-style: none;
+    }
+    
+    .timeline-item {
+        position: relative;
+        padding-left: 40px;
+        margin-bottom: 25px;
+    }
+    
+    .timeline-item:before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: -25px;
+        width: 2px;
+        background-color: #e9ecef;
+    }
+    
+    .timeline-item:last-child:before {
+        display: none;
+    }
+    
+    .timeline-item i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        border: 2px solid #e9ecef;
+        text-align: center;
+        line-height: 30px;
+        color: #6c757d;
+    }
+    
+    .timeline-date {
+        display: block;
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 5px;
+    }
+    
+    .timeline-title {
+        margin-bottom: 5px;
+        font-size: 1rem;
+    }
+    
+    .timeline-text {
+        margin-bottom: 0;
+        color: #6c757d;
+    }
+    
+    .notes-content {
+        min-height: 150px;
+        background-color: #f8f9fa;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Feather icons
+        feather.replace();
+        
+        // Apply theme-specific adjustments
+        applyThemeAdjustments();
+        
+        // Load groups for the assign group modal
+        loadGroups();
+        
+        // Load message templates
+        loadMessageTemplates();
+        
+        // Delete confirmation checkbox handler
+        document.getElementById('confirmDelete').addEventListener('change', function() {
+            document.getElementById('confirmDeleteBtn').disabled = !this.checked;
+        });
+        
+        // Confirm delete button handler
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            // Send request to delete contact
+            fetch('/contact/delete/{{ contact.id }}', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Redirect to contacts page
+                    window.location.href = '{{ url_for("contact.index") }}';
+                } else {
+                    showAlert('danger', data.error || 'Failed to delete contact.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while deleting the contact.');
+            });
+        });
+        
+        // Save edited contact button handler
+        document.getElementById('saveEditContactBtn').addEventListener('click', function() {
+            const form = document.getElementById('editContactForm');
+            
+            // Validate form
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            const formData = new FormData(form);
+            
+            // Convert FormData to JSON
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            // Add + to phone number if not present
+            if (data.phone && !data.phone.startsWith('+')) {
+                data.phone = '+' + data.phone;
+            }
+            
+            // Send request to edit contact
+            fetch('/contact/edit/{{ contact.id }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editContactModal'));
+                    modal.hide();
+                    
+                    // Update contact info on page
+                    document.getElementById('contactName').textContent = data.contact.name;
+                    document.getElementById('contactPhone').textContent = data.contact.phone;
+                    document.getElementById('contactEmail').textContent = data.contact.email || '--';
+                    document.getElementById('contactInitials').textContent = data.contact.name.substring(0, 2);
+                    
+                    // Show success message
+                    showAlert('success', 'Contact updated successfully!');
+                } else {
+                    showAlert('danger', data.error || 'Failed to update contact.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while updating the contact.');
+            });
+        });
+        
+        // Save notes button handler
+        document.getElementById('saveNotesBtn').addEventListener('click', function() {
+            const notes = document.getElementById('editContactNotes').value;
+            
+            // Send request to update notes
+            fetch('/contact/update_notes/{{ contact.id }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ notes: notes })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editNotesModal'));
+                    modal.hide();
+                    
+                    // Update notes on page
+                    if (notes) {
+                        document.getElementById('contactNotes').innerHTML = notes.replace(/\n/g, '<br>');
+                    } else {
+                        document.getElementById('contactNotes').innerHTML = '<p class="text-muted">No notes available for this contact.</p>';
+                    }
+                    
+                    // Show success message
+                    showAlert('success', 'Notes updated successfully!');
+                } else {
+                    showAlert('danger', data.error || 'Failed to update notes.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while updating notes.');
+            });
+        });
+        
+        // Add to group button handler
+        document.getElementById('addToGroupBtn').addEventListener('click', function() {
+            const group = document.getElementById('assignGroupSelect').value;
+            
+            if (!group) {
+                return;
+            }
+            
+            // Send request to add contact to group
+            fetch('/contact/add_to_group/{{ contact.id }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ group: group })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Reset group select
+                    document.getElementById('assignGroupSelect').value = '';
+                    
+                    // Update groups display
+                    updateGroupsDisplay(data.contact.groups);
+                    
+                    // Show success message
+                    showAlert('success', `Added to group ${group} successfully!`);
+                } else {
+                    showAlert('danger', data.error || 'Failed to add to group.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while adding to group.');
+            });
+        });
+        
+        // Remove group links handler (using event delegation)
+        document.getElementById('currentGroups').addEventListener('click', function(e) {
+            const removeLink = e.target.closest('.remove-group');
+            
+            if (removeLink) {
+                e.preventDefault();
+                const group = removeLink.getAttribute('data-group');
+                
+                // Send request to remove contact from group
+                fetch('/contact/remove_from_group/{{ contact.id }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ group: group })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update groups display
+                        updateGroupsDisplay(data.contact.groups);
+                        
+                        // Show success message
+                        showAlert('success', `Removed from group ${group} successfully!`);
+                    } else {
+                        showAlert('danger', data.error || 'Failed to remove from group.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while removing from group.');
+                });
+            }
+        });
+        
+        // Message template change handler
+        document.getElementById('messageTemplate').addEventListener('change', function() {
+            const templateId = this.value;
+            
+            if (templateId) {
+                // Load template content
+                fetch(`/message/templates/${templateId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('messageContent').value = data.template.content;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            }
+        });
+        
+        // Schedule switch handler
+        document.getElementById('enableSchedule').addEventListener('change', function() {
+            const scheduleTimeContainer = document.getElementById('scheduleTimeContainer');
+            scheduleTimeContainer.style.display = this.checked ? 'block' : 'none';
+            
+            if (this.checked) {
+                // Set default schedule time to 1 hour from now
+                const now = new Date();
+                now.setHours(now.getHours() + 1);
+                const dateTimeString = now.toISOString().slice(0, 16);
+                document.getElementById('scheduleTime').value = dateTimeString;
+            }
+        });
+        
+        // Send message button handler
+        document.getElementById('sendMessageBtn').addEventListener('click', function() {
+            const form = document.getElementById('sendMessageForm');
+            
+            // Validate form
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+            
+            const formData = new FormData(form);
+            
+            // Convert FormData to JSON
+            const data = {};
+            formData.forEach((value, key) => {
+                data[key] = value;
+            });
+            
+            // Add contact ID and schedule information
+            data.contact_ids = [{{ contact.id }}];
+            data.scheduled = document.getElementById('enableSchedule').checked;
+            
+            if (!data.scheduled) {
+                delete data.schedule_time;
+            }
+            
+            // Send request to send message
+            fetch('/message/send_to_contacts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close modal
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('sendMessageModal'));
+                    modal.hide();
+                    form.reset();
+                    
+                    // Reload message history tab
+                    loadMessageHistory();
+                    
+                    // Show success message
+                    if (data.scheduled) {
+                        showAlert('success', 'Message scheduled successfully!');
+                    } else {
+                        showAlert('success', 'Message sent successfully!');
+                    }
+                } else {
+                    showAlert('danger', data.error || 'Failed to send message.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while sending the message.');
+            });
+        });
+        
+        // View message button handler (using event delegation)
+        document.getElementById('messageHistoryTable').addEventListener('click', function(e) {
+            const viewBtn = e.target.closest('.view-message-btn');
+            
+            if (viewBtn) {
+                const messageId = viewBtn.getAttribute('data-message-id');
+                viewMessage(messageId);
+            }
+            
+            const resendBtn = e.target.closest('.resend-message-btn');
+            
+            if (resendBtn) {
+                const messageId = resendBtn.getAttribute('data-message-id');
+                resendMessage(messageId);
+            }
+        });
+        
+        // Resend viewed message button handler
+        document.getElementById('resendViewedMessageBtn').addEventListener('click', function() {
+            const messageId = this.getAttribute('data-message-id');
+            resendMessage(messageId);
+        });
+        
+        // Functions
+        
+        function loadGroups() {
+            fetch('/contact/api/list_groups')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const assignGroupSelect = document.getElementById('assignGroupSelect');
+                    
+                    // Clear existing options except the first one
+                    while (assignGroupSelect.options.length > 1) {
+                        assignGroupSelect.remove(1);
+                    }
+                    
+                    // Add groups to select
+                    if (data.groups.length > 0) {
+                        data.groups.forEach(group => {
+                            // Skip groups that the contact is already in
+                            if (!isContactInGroup(group.name)) {
+                                const option = document.createElement('option');
+                                option.value = group.name;
+                                option.textContent = group.name;
+                                assignGroupSelect.appendChild(option);
+                            }
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function isContactInGroup(groupName) {
+            const contactGroups = document.getElementById('contactGroups').textContent.split(', ');
+            return contactGroups.includes(groupName);
+        }
+        
+        function updateGroupsDisplay(groups) {
+            const currentGroups = document.getElementById('currentGroups');
+            const contactGroups = document.getElementById('contactGroups');
+            
+            // Update groups display
+            if (groups && groups.length > 0) {
+                let groupsHtml = '';
+                groups.forEach(group => {
+                    groupsHtml += `
+                        <span class="badge bg-primary me-1 mb-1 p-2">
+                            ${group}
+                            <a href="#" class="text-white ms-1 remove-group" data-group="${group}">
+                                <i class="align-middle" data-feather="x"></i>
+                            </a>
+                        </span>
+                    `;
+                });
+                currentGroups.innerHTML = groupsHtml;
+                contactGroups.textContent = groups.join(', ');
+            } else {
+                currentGroups.innerHTML = '<p class="text-muted">No groups assigned</p>';
+                contactGroups.textContent = 'No Groups';
+            }
+            
+            // Re-initialize Feather icons
+            feather.replace();
+            
+            // Reload groups for the assign group modal
+            loadGroups();
+        }
+        
+        function loadMessageTemplates() {
+            fetch('/message/templates')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const templateSelect = document.getElementById('messageTemplate');
+                    
+                    // Clear existing options except the first one
+                    while (templateSelect.options.length > 1) {
+                        templateSelect.remove(1);
+                    }
+                    
+                    // Add templates to select
+                    if (data.templates.length > 0) {
+                        data.templates.forEach(template => {
+                            const option = document.createElement('option');
+                            option.value = template.id;
+                            option.textContent = template.name;
+                            templateSelect.appendChild(option);
+                        });
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function loadMessageHistory() {
+            fetch('/message/history/contact/{{ contact.id }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const messageHistoryTable = document.getElementById('messageHistoryTable');
+                    
+                    // Clear table
+                    messageHistoryTable.innerHTML = '';
+                    
+                    // Add messages to table
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(message => {
+                            const row = document.createElement('tr');
+                            
+                            // Format date
+                            const date = new Date(message.created_at);
+                            const formattedDate = date.toLocaleString();
+                            
+                            // Create status badge
+                            let statusBadge = '';
+                            if (message.status === 'delivered') {
+                                statusBadge = '<span class="badge bg-success">Delivered</span>';
+                            } else if (message.status === 'failed') {
+                                statusBadge = '<span class="badge bg-danger">Failed</span>';
+                            } else if (message.status === 'pending') {
+                                statusBadge = '<span class="badge bg-warning">Pending</span>';
+                            } else if (message.status === 'scheduled') {
+                                statusBadge = '<span class="badge bg-info">Scheduled</span>';
+                            } else {
+                                statusBadge = `<span class="badge bg-secondary">${message.status}</span>`;
+                            }
+                            
+                            row.innerHTML = `
+                                <td>${formattedDate}</td>
+                                <td>${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}</td>
+                                <td>${statusBadge}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary view-message-btn" data-message-id="${message.id}">
+                                        <i class="align-middle" data-feather="eye"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary resend-message-btn" data-message-id="${message.id}">
+                                        <i class="align-middle" data-feather="repeat"></i>
+                                    </button>
+                                </td>
+                            `;
+                            
+                            messageHistoryTable.appendChild(row);
+                        });
+                        
+                        // Re-initialize Feather icons
+                        feather.replace();
+                    } else {
+                        messageHistoryTable.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center">No messages sent to this contact yet.</td>
+                            </tr>
+                        `;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+        
+        function viewMessage(messageId) {
+            fetch(`/message/${messageId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const message = data.message;
+                    
+                    // Format date
+                    const date = new Date(message.created_at);
+                    const formattedDate = date.toLocaleString();
+                    
+                    // Update modal content
+                    document.getElementById('viewMessageDate').textContent = formattedDate;
+                    
+                    // Create status badge
+                    let statusBadge = '';
+                    if (message.status === 'delivered') {
+                        statusBadge = '<span class="badge bg-success">Delivered</span>';
+                    } else if (message.status === 'failed') {
+                        statusBadge = '<span class="badge bg-danger">Failed</span>';
+                    } else if (message.status === 'pending') {
+                        statusBadge = '<span class="badge bg-warning">Pending</span>';
+                    } else if (message.status === 'scheduled') {
+                        statusBadge = '<span class="badge bg-info">Scheduled</span>';
+                    } else {
+                        statusBadge = `<span class="badge bg-secondary">${message.status}</span>`;
+                    }
+                    
+                    document.getElementById('viewMessageStatus').innerHTML = statusBadge;
+                    document.getElementById('viewMessageContent').textContent = message.content;
+                    
+                    // Show/hide error details
+                    const errorContainer = document.getElementById('viewMessageErrorContainer');
+                    if (message.error) {
+                        errorContainer.style.display = 'block';
+                        document.getElementById('viewMessageError').textContent = message.error;
+                    } else {
+                        errorContainer.style.display = 'none';
+                    }
+                    
+                    // Set message ID for resend button
+                    document.getElementById('resendViewedMessageBtn').setAttribute('data-message-id', message.id);
+                    
+                    // Show modal
+                    const modal = new bootstrap.Modal(document.getElementById('viewMessageModal'));
+                    modal.show();
+                } else {
+                    showAlert('danger', data.error || 'Failed to load message details.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while loading message details.');
+            });
+        }
+        
+        function resendMessage(messageId) {
+            fetch(`/message/resend/${messageId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Close view message modal if open
+                    const viewModal = bootstrap.Modal.getInstance(document.getElementById('viewMessageModal'));
+                    if (viewModal) {
+                        viewModal.hide();
+                    }
+                    
+                    // Reload message history
+                    loadMessageHistory();
+                    
+                    // Show success message
+                    showAlert('success', 'Message resent successfully!');
+                } else {
+                    showAlert('danger', data.error || 'Failed to resend message.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', 'An error occurred while resending the message.');
+            });
+        }
+        
+        function showAlert(type, message) {
+            // Create alert element
+            const alertElement = document.createElement('div');
+            alertElement.className = `alert alert-${type} alert-dismissible fade show`;
+            alertElement.setAttribute('role', 'alert');
+            alertElement.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            // Add alert to the top of the page
+            const container = document.querySelector('.container-fluid');
+            container.insertBefore(alertElement, container.firstChild);
+            
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alertElement);
+                bsAlert.close();
+            }, 5000);
+        }
+    });
+</script>
+{% endblock %}

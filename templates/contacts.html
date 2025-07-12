@@ -1,0 +1,853 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Contacts</strong> Management</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="#" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addContactModal">
+                <i class="align-middle" data-feather="user-plus"></i> Add Contact
+            </a>
+            <a href="{{ url_for('contact.import_page') }}" class="btn btn-light">
+                <i class="align-middle" data-feather="upload"></i> Import
+            </a>
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-light dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="align-middle" data-feather="download"></i> Export
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                    <li><a class="dropdown-item" href="{{ url_for('contact.export_contacts', format='csv') }}">CSV</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('contact.export_contacts', format='xml') }}">XML</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8 col-xxl-9 d-flex">
+            <div class="card flex-fill">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Contact List</h5>
+                        <div class="d-flex">
+                            <div class="input-group me-2">
+                                <input type="text" class="form-control" id="contactSearch" placeholder="Search contacts...">
+                                <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                                    <i class="align-middle" data-feather="search"></i>
+                                </button>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="groupFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    All Groups
+                                </button>
+                                <ul class="dropdown-menu" id="groupFilterMenu" aria-labelledby="groupFilterDropdown">
+                                    <li><a class="dropdown-item active" href="#" data-group="all">All Groups</a></li>
+                                    <!-- Groups will be loaded dynamically -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover my-0" id="contactsTable">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="selectAllContacts">
+                                            <label class="form-check-label" for="selectAllContacts"></label>
+                                        </div>
+                                    </th>
+                                    <th>Name</th>
+                                    <th>Phone</th>
+                                    <th>Email</th>
+                                    <th>Group</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for contact in contacts.items %}
+                                <tr data-contact-id="{{ contact.id }}">
+                                    <td>
+                                        <div class="form-check">
+                                            <input class="form-check-input contact-checkbox" type="checkbox" value="{{ contact.id }}">
+                                            <label class="form-check-label"></label>
+                                        </div>
+                                    </td>
+                                    <td>{{ contact.name }}</td>
+                                    <td>{{ contact.phone }}</td>
+                                    <td>{{ contact.email or '-' }}</td>
+                                    <td><span class="badge bg-primary">{{ contact.group or 'default' }}</span></td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-sm btn-outline-primary edit-contact" data-contact-id="{{ contact.id }}">
+                                                <i data-feather="edit-2"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger delete-contact" data-contact-id="{{ contact.id }}">
+                                                <i data-feather="trash"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-success send-message" data-contact-id="{{ contact.id }}" data-contact-name="{{ contact.name }}" data-contact-phone="{{ contact.phone }}">
+                                                <i data-feather="message-square"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center">No contacts found</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <div>
+                        <button id="bulkDeleteBtn" class="btn btn-sm btn-danger" disabled>
+                            <i class="align-middle" data-feather="trash-2"></i> Delete Selected
+                        </button>
+                        <div class="dropdown d-inline-block">
+                            <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="bulkActionDropdown" data-bs-toggle="dropdown" aria-expanded="false" disabled>
+                                Bulk Actions
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="bulkActionDropdown">
+                                <li><a class="dropdown-item" href="#" id="bulkAssignGroup">Assign to Group</a></li>
+                                <li><a class="dropdown-item" href="#" id="bulkExport">Export Selected</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <nav>
+                        <ul class="pagination mb-0">
+                            {% if contacts.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('contact.index', page=contacts.prev_num) }}">&laquo;</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">&laquo;</a>
+                            </li>
+                            {% endif %}
+                            
+                            {% for page_num in contacts.iter_pages(left_edge=1, right_edge=1, left_current=1, right_current=2) %}
+                                {% if page_num %}
+                                    {% if contacts.page == page_num %}
+                                    <li class="page-item active">
+                                        <a class="page-link" href="{{ url_for('contact.index', page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                    {% else %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('contact.index', page=page_num) }}">{{ page_num }}</a>
+                                    </li>
+                                    {% endif %}
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#">...</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if contacts.has_next %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('contact.index', page=contacts.next_num) }}">&raquo;</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">&raquo;</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4 col-xxl-3 d-flex">
+            <div class="card flex-fill">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Contact Groups</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2 mb-3">
+                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addGroupModal">
+                            <i class="align-middle" data-feather="plus"></i> Add Group
+                        </button>
+                    </div>
+                    <div class="list-group" id="groupsList">
+                        <!-- Groups will be loaded dynamically -->
+                        <div class="text-center py-3" id="groupsLoading">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Contact Modal -->
+<div class="modal fade" id="addContactModal" tabindex="-1" aria-labelledby="addContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addContactModalLabel">Add New Contact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addContactForm" action="{{ url_for('contact.add_contact') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="contactName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="contactName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactPhone" class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" id="contactPhone" name="phone" required>
+                        <small class="form-text text-muted">Include country code (e.g., +1234567890)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="contactEmail" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactGroup" class="form-label">Group</label>
+                        <select class="form-select" id="contactGroup" name="group">
+                            <option value="default">Default</option>
+                            <!-- Groups will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contactNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="contactNotes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Contact</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Contact Modal -->
+<div class="modal fade" id="editContactModal" tabindex="-1" aria-labelledby="editContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editContactModalLabel">Edit Contact</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editContactForm" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="editContactName" class="form-label">Name</label>
+                        <input type="text" class="form-control" id="editContactName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editContactPhone" class="form-label">Phone Number</label>
+                        <input type="tel" class="form-control" id="editContactPhone" name="phone" required>
+                        <small class="form-text text-muted">Include country code (e.g., +1234567890)</small>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editContactEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editContactEmail" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editContactGroup" class="form-label">Group</label>
+                        <select class="form-select" id="editContactGroup" name="group">
+                            <option value="default">Default</option>
+                            <!-- Groups will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editContactNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="editContactNotes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Group Modal -->
+<div class="modal fade" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addGroupModalLabel">Add New Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addGroupForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="groupName" class="form-label">Group Name</label>
+                        <input type="text" class="form-control" id="groupName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="groupDescription" class="form-label">Description (Optional)</label>
+                        <textarea class="form-control" id="groupDescription" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Group</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Assign to Group Modal -->
+<div class="modal fade" id="assignGroupModal" tabindex="-1" aria-labelledby="assignGroupModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assignGroupModalLabel">Assign to Group</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="assignGroupForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="assignGroupSelect" class="form-label">Select Group</label>
+                        <select class="form-select" id="assignGroupSelect" required>
+                            <option value="" selected disabled>Choose a group...</option>
+                            <option value="default">Default</option>
+                            <!-- Groups will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="align-middle" data-feather="info"></i>
+                        <span id="selectedContactsCount">0</span> contacts will be assigned to the selected group.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Assign</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this contact? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Confirmation Modal -->
+<div class="modal fade" id="bulkDeleteConfirmModal" tabindex="-1" aria-labelledby="bulkDeleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkDeleteConfirmModalLabel">Confirm Bulk Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <span id="bulkDeleteCount">0</span> contacts? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmBulkDeleteBtn">Delete All</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Message Modal -->
+<div class="modal fade" id="sendMessageModal" tabindex="-1" aria-labelledby="sendMessageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendMessageModalLabel">Send Message</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="sendMessageForm" action="{{ url_for('message.compose') }}" method="get">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Recipient</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="recipientName" readonly>
+                            <input type="hidden" id="recipientPhone" name="to">
+                            <button class="btn btn-outline-secondary" type="button" id="changeRecipientBtn">Change</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Compose Message</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Feather icons
+        feather.replace();
+        
+        // Load contact groups
+        loadGroups();
+        
+        // Handle select all checkbox
+        document.getElementById('selectAllContacts').addEventListener('change', function() {
+            const isChecked = this.checked;
+            document.querySelectorAll('.contact-checkbox').forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+            updateBulkActionButtons();
+        });
+        
+        // Handle individual contact checkboxes
+        document.querySelectorAll('.contact-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', updateBulkActionButtons);
+        });
+        
+        // Handle edit contact button clicks
+        document.querySelectorAll('.edit-contact').forEach(button => {
+            button.addEventListener('click', function() {
+                const contactId = this.getAttribute('data-contact-id');
+                openEditContactModal(contactId);
+            });
+        });
+        
+        // Handle delete contact button clicks
+        document.querySelectorAll('.delete-contact').forEach(button => {
+            button.addEventListener('click', function() {
+                const contactId = this.getAttribute('data-contact-id');
+                openDeleteConfirmModal(contactId);
+            });
+        });
+        
+        // Handle send message button clicks
+        document.querySelectorAll('.send-message').forEach(button => {
+            button.addEventListener('click', function() {
+                const contactId = this.getAttribute('data-contact-id');
+                const contactName = this.getAttribute('data-contact-name');
+                const contactPhone = this.getAttribute('data-contact-phone');
+                openSendMessageModal(contactId, contactName, contactPhone);
+            });
+        });
+        
+        // Handle bulk delete button
+        document.getElementById('bulkDeleteBtn').addEventListener('click', function() {
+            const selectedContacts = getSelectedContactIds();
+            if (selectedContacts.length > 0) {
+                document.getElementById('bulkDeleteCount').textContent = selectedContacts.length;
+                const bulkDeleteModal = new bootstrap.Modal(document.getElementById('bulkDeleteConfirmModal'));
+                bulkDeleteModal.show();
+            }
+        });
+        
+        // Handle confirm bulk delete button
+        document.getElementById('confirmBulkDeleteBtn').addEventListener('click', function() {
+            const selectedContacts = getSelectedContactIds();
+            if (selectedContacts.length > 0) {
+                bulkDeleteContacts(selectedContacts);
+            }
+        });
+        
+        // Handle bulk assign group button
+        document.getElementById('bulkAssignGroup').addEventListener('click', function() {
+            const selectedContacts = getSelectedContactIds();
+            if (selectedContacts.length > 0) {
+                document.getElementById('selectedContactsCount').textContent = selectedContacts.length;
+                const assignGroupModal = new bootstrap.Modal(document.getElementById('assignGroupModal'));
+                assignGroupModal.show();
+            }
+        });
+        
+        // Handle add contact form submission
+        document.getElementById('addContactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json();
+                }
+            })
+            .then(data => {
+                if (data && !data.success) {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while adding the contact.');
+            });
+        });
+        
+        // Handle edit contact form submission
+        document.getElementById('editContactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.redirected) {
+                    window.location.href = response.url;
+                } else {
+                    return response.json();
+                }
+            })
+            .then(data => {
+                if (data && !data.success) {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the contact.');
+            });
+        });
+        
+        // Handle add group form submission
+        document.getElementById('addGroupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const groupName = document.getElementById('groupName').value;
+            const groupDescription = document.getElementById('groupDescription').value;
+            
+            // This is a placeholder - you'll need to implement group creation logic
+            alert('Group creation functionality will be implemented here.');
+            
+            // Close the modal
+            const addGroupModal = bootstrap.Modal.getInstance(document.getElementById('addGroupModal'));
+            addGroupModal.hide();
+            
+            // Reload groups
+            loadGroups();
+        });
+        
+        // Handle assign group form submission
+        document.getElementById('assignGroupForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const selectedGroup = document.getElementById('assignGroupSelect').value;
+            const selectedContacts = getSelectedContactIds();
+            
+            if (selectedContacts.length > 0 && selectedGroup) {
+                // This is a placeholder - you'll need to implement group assignment logic
+                alert(`Assigning ${selectedContacts.length} contacts to group: ${selectedGroup}`);
+                
+                // Close the modal
+                const assignGroupModal = bootstrap.Modal.getInstance(document.getElementById('assignGroupModal'));
+                assignGroupModal.hide();
+                
+                // Reload the page to reflect changes
+                window.location.reload();
+            }
+        });
+        
+        // Handle search functionality
+        document.getElementById('searchButton').addEventListener('click', function() {
+            const searchTerm = document.getElementById('contactSearch').value.toLowerCase();
+            filterContacts(searchTerm);
+        });
+        
+        document.getElementById('contactSearch').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                const searchTerm = this.value.toLowerCase();
+                filterContacts(searchTerm);
+            }
+        });
+        
+        // Functions
+        
+        function loadGroups() {
+            fetch('{{ url_for("contact.api_list_groups") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update group filter dropdown
+                    const groupFilterMenu = document.getElementById('groupFilterMenu');
+                    let filterHtml = '<li><a class="dropdown-item active" href="#" data-group="all">All Groups</a></li>';
+                    
+                    // Update groups list
+                    const groupsList = document.getElementById('groupsList');
+                    let groupsHtml = '';
+                    
+                    // Update group selects in modals
+                    const contactGroupSelect = document.getElementById('contactGroup');
+                    const editContactGroupSelect = document.getElementById('editContactGroup');
+                    const assignGroupSelect = document.getElementById('assignGroupSelect');
+                    
+                    let groupOptionsHtml = '<option value="default">Default</option>';
+                    
+                    data.groups.forEach(group => {
+                        // Add to filter dropdown
+                        filterHtml += `<li><a class="dropdown-item" href="#" data-group="${group}">${group}</a></li>`;
+                        
+                        // Add to groups list
+                        groupsHtml += `
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" data-group="${group}">
+                            ${group}
+                            <span class="badge bg-primary rounded-pill">${data.stats.find(s => s.name === group)?.count || 0}</span>
+                        </a>`;
+                        
+                        // Add to group selects
+                        groupOptionsHtml += `<option value="${group}">${group}</option>`;
+                    });
+                    
+                    groupFilterMenu.innerHTML = filterHtml;
+                    groupsList.innerHTML = groupsHtml;
+                    document.getElementById('groupsLoading').style.display = 'none';
+                    
+                    contactGroupSelect.innerHTML = groupOptionsHtml;
+                    editContactGroupSelect.innerHTML = groupOptionsHtml;
+                    assignGroupSelect.innerHTML = '<option value="" selected disabled>Choose a group...</option><option value="default">Default</option>' + 
+                        data.groups.map(group => `<option value="${group}">${group}</option>`).join('');
+                    
+                    // Add event listeners to group filter items
+                    document.querySelectorAll('#groupFilterMenu .dropdown-item').forEach(item => {
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const group = this.getAttribute('data-group');
+                            document.getElementById('groupFilterDropdown').textContent = group === 'all' ? 'All Groups' : group;
+                            filterContactsByGroup(group);
+                            
+                            // Update active state
+                            document.querySelectorAll('#groupFilterMenu .dropdown-item').forEach(i => {
+                                i.classList.remove('active');
+                            });
+                            this.classList.add('active');
+                        });
+                    });
+                    
+                    // Add event listeners to group list items
+                    document.querySelectorAll('#groupsList .list-group-item').forEach(item => {
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const group = this.getAttribute('data-group');
+                            document.getElementById('groupFilterDropdown').textContent = group;
+                            filterContactsByGroup(group);
+                            
+                            // Update active state in dropdown
+                            document.querySelectorAll('#groupFilterMenu .dropdown-item').forEach(i => {
+                                i.classList.remove('active');
+                                if (i.getAttribute('data-group') === group) {
+                                    i.classList.add('active');
+                                }
+                            });
+                        });
+                    });
+                } else {
+                    console.error('Error loading groups:', data.error);
+                    document.getElementById('groupsList').innerHTML = '<div class="alert alert-danger">Error loading groups</div>';
+                    document.getElementById('groupsLoading').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('groupsList').innerHTML = '<div class="alert alert-danger">Error loading groups</div>';
+                document.getElementById('groupsLoading').style.display = 'none';
+            });
+        }
+        
+        function openEditContactModal(contactId) {
+            // Get contact data from the table row
+            const row = document.querySelector(`tr[data-contact-id="${contactId}"]`);
+            const name = row.cells[1].textContent;
+            const phone = row.cells[2].textContent;
+            const email = row.cells[3].textContent === '-' ? '' : row.cells[3].textContent;
+            const group = row.cells[4].querySelector('.badge').textContent;
+            
+            // Set form action
+            const form = document.getElementById('editContactForm');
+            form.action = `{{ url_for('contact.edit_contact', contact_id=0) }}`.replace('0', contactId);
+            
+            // Fill form fields
+            document.getElementById('editContactName').value = name;
+            document.getElementById('editContactPhone').value = phone;
+            document.getElementById('editContactEmail').value = email;
+            
+            // Set group select value
+            const groupSelect = document.getElementById('editContactGroup');
+            for (let i = 0; i < groupSelect.options.length; i++) {
+                if (groupSelect.options[i].value === group) {
+                    groupSelect.selectedIndex = i;
+                    break;
+                }
+            }
+            
+            // Show modal
+            const editModal = new bootstrap.Modal(document.getElementById('editContactModal'));
+            editModal.show();
+        }
+        
+        function openDeleteConfirmModal(contactId) {
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            confirmDeleteBtn.onclick = function() {
+                deleteContact(contactId);
+            };
+            
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+            deleteModal.show();
+        }
+        
+        function openSendMessageModal(contactId, contactName, contactPhone) {
+            document.getElementById('recipientName').value = contactName;
+            document.getElementById('recipientPhone').value = contactPhone;
+            
+            const sendMessageModal = new bootstrap.Modal(document.getElementById('sendMessageModal'));
+            sendMessageModal.show();
+        }
+        
+        function deleteContact(contactId) {
+            fetch(`{{ url_for('contact.delete_contact', contact_id=0) }}`.replace('0', contactId), {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the row from the table
+                    const row = document.querySelector(`tr[data-contact-id="${contactId}"]`);
+                    row.remove();
+                    
+                    // Close the modal
+                    const deleteModal = bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal'));
+                    deleteModal.hide();
+                    
+                    // Reload groups to update counts
+                    loadGroups();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the contact.');
+            });
+        }
+        
+        function bulkDeleteContacts(contactIds) {
+            fetch('{{ url_for("contact.bulk_delete_contacts") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ contact_ids: contactIds })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Remove the rows from the table
+                    contactIds.forEach(id => {
+                        const row = document.querySelector(`tr[data-contact-id="${id}"]`);
+                        if (row) row.remove();
+                    });
+                    
+                    // Close the modal
+                    const bulkDeleteModal = bootstrap.Modal.getInstance(document.getElementById('bulkDeleteConfirmModal'));
+                    bulkDeleteModal.hide();
+                    
+                    // Reset select all checkbox
+                    document.getElementById('selectAllContacts').checked = false;
+                    
+                    // Update bulk action buttons
+                    updateBulkActionButtons();
+                    
+                    // Reload groups to update counts
+                    loadGroups();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while deleting the contacts.');
+            });
+        }
+        
+        function getSelectedContactIds() {
+            const checkboxes = document.querySelectorAll('.contact-checkbox:checked');
+            return Array.from(checkboxes).map(checkbox => checkbox.value);
+        }
+        
+        function updateBulkActionButtons() {
+            const selectedCount = document.querySelectorAll('.contact-checkbox:checked').length;
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const bulkActionDropdown = document.getElementById('bulkActionDropdown');
+            
+            if (selectedCount > 0) {
+                bulkDeleteBtn.disabled = false;
+                bulkActionDropdown.disabled = false;
+            } else {
+                bulkDeleteBtn.disabled = true;
+                bulkActionDropdown.disabled = true;
+            }
+        }
+        
+        function filterContacts(searchTerm) {
+            const rows = document.querySelectorAll('#contactsTable tbody tr');
+            
+            rows.forEach(row => {
+                if (row.cells.length <= 1) return; // Skip the "No contacts found" row
+                
+                const name = row.cells[1].textContent.toLowerCase();
+                const phone = row.cells[2].textContent.toLowerCase();
+                const email = row.cells[3].textContent.toLowerCase();
+                const group = row.cells[4].textContent.toLowerCase();
+                
+                if (name.includes(searchTerm) || phone.includes(searchTerm) || 
+                    email.includes(searchTerm) || group.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+        
+        function filterContactsByGroup(group) {
+            const rows = document.querySelectorAll('#contactsTable tbody tr');
+            
+            if (group === 'all') {
+                rows.forEach(row => {
+                    row.style.display = '';
+                });
+                return;
+            }
+            
+            rows.forEach(row => {
+                if (row.cells.length <= 1) return; // Skip the "No contacts found" row
+                
+                const rowGroup = row.cells[4].querySelector('.badge').textContent;
+                
+                if (rowGroup === group) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

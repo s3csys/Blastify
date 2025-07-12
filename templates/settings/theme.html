@@ -1,0 +1,328 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="mb-3">
+        <h1 class="h3 d-inline align-middle">Theme Settings</h1>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Choose a Theme</h5>
+                    <h6 class="card-subtitle text-muted">Select your preferred theme for the Blastify dashboard.</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Default Theme -->
+                        <div class="col-12 col-md-6 col-lg-4 mb-4">
+                            <div class="card theme-card" data-theme="default">
+                                <div class="card-header bg-primary text-white">
+                                    Default
+                                </div>
+                                <div class="card-body">
+                                    <div class="theme-preview">
+                                        <div class="theme-preview-header bg-light p-2 mb-2">
+                                            <div class="theme-preview-navbar"></div>
+                                        </div>
+                                        <div class="theme-preview-sidebar bg-dark float-start me-2" style="width: 20%; height: 100px;"></div>
+                                        <div class="theme-preview-content float-start" style="width: 75%; height: 100px;">
+                                            <div class="theme-preview-card bg-white p-1 mb-1" style="height: 30px;"></div>
+                                            <div class="theme-preview-card bg-white p-1" style="height: 60px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <button class="btn btn-primary w-100 select-theme" data-theme="default">Select</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Data Able Theme -->
+                        <div class="col-12 col-md-6 col-lg-4 mb-4">
+                            <div class="card theme-card" data-theme="data-able">
+                                <div class="card-header bg-info text-white">
+                                    Data Able
+                                </div>
+                                <div class="card-body">
+                                    <div class="theme-preview">
+                                        <div class="theme-preview-header bg-light p-2 mb-2">
+                                            <div class="theme-preview-navbar"></div>
+                                        </div>
+                                        <div class="theme-preview-sidebar bg-info float-start me-2" style="width: 20%; height: 100px;"></div>
+                                        <div class="theme-preview-content float-start" style="width: 75%; height: 100px;">
+                                            <div class="theme-preview-card bg-white p-1 mb-1" style="height: 30px;"></div>
+                                            <div class="theme-preview-card bg-white p-1" style="height: 60px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <button class="btn btn-info w-100 select-theme" data-theme="data-able">Select</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Teal Minimalist Theme -->
+                        <div class="col-12 col-md-6 col-lg-4 mb-4">
+                            <div class="card theme-card" data-theme="teal-minimalist">
+                                <div class="card-header" style="background-color: #00bcd4; color: white;">
+                                    Teal Minimalist
+                                </div>
+                                <div class="card-body">
+                                    <div class="theme-preview">
+                                        <div class="theme-preview-header" style="background-color: #00bcd4; color: white; padding: 2px; margin-bottom: 8px;">
+                                            <div class="theme-preview-navbar"></div>
+                                        </div>
+                                        <div class="theme-preview-content" style="width: 100%; height: 100px;">
+                                            <div class="theme-preview-card bg-white p-1 mb-1" style="height: 30px; border-left: 3px solid #00bcd4;"></div>
+                                            <div class="theme-preview-card bg-white p-1" style="height: 60px; border-left: 3px solid #00bcd4;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer">
+                                    <button class="btn w-100 select-theme" style="background-color: #00bcd4; color: white;" data-theme="teal-minimalist">Select</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dark Enterprise Theme -->
+                        <div class="col-12 col-md-6 col-lg-4 mb-4">
+                            <div class="card theme-card" data-theme="dark-enterprise">
+                                <div class="card-header" style="background-color: #7367f0; color: white;">
+                                    Dark Enterprise
+                                </div>
+                                <div class="card-body" style="background-color: #283046; color: white;">
+                                    <div class="theme-preview">
+                                        <div class="theme-preview-header" style="background-color: #161d31; color: white; padding: 2px; margin-bottom: 8px;">
+                                            <div class="theme-preview-navbar"></div>
+                                        </div>
+                                        <div class="theme-preview-content" style="width: 100%; height: 100px;">
+                                            <div class="theme-preview-card p-1 mb-1" style="height: 30px; background-color: #283046; border: 1px solid #404656;"></div>
+                                            <div class="theme-preview-card p-1" style="height: 60px; background-color: #283046; border: 1px solid #404656;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-footer" style="background-color: #161d31;">
+                                    <button class="btn w-100 select-theme" style="background-color: #7367f0; color: white;" data-theme="dark-enterprise">Select</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Theme Colors</h5>
+                    <h6 class="card-subtitle text-muted">Preview of the current theme colors.</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title text-white">Primary</h5>
+                                    <p class="card-text">Primary color for buttons and highlights.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-secondary text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title text-white">Secondary</h5>
+                                    <p class="card-text">Secondary color for less important elements.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title text-white">Success</h5>
+                                    <p class="card-text">Used for successful actions and positive feedback.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title text-white">Danger</h5>
+                                    <p class="card-text">Used for errors and destructive actions.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-warning">
+                                <div class="card-body">
+                                    <h5 class="card-title">Warning</h5>
+                                    <p class="card-text">Used for warnings and cautionary messages.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title text-white">Info</h5>
+                                    <p class="card-text">Used for informational messages.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Light</h5>
+                                    <p class="card-text">Used for light backgrounds.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-3 mb-3">
+                            <div class="card bg-dark text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title text-white">Dark</h5>
+                                    <p class="card-text">Used for dark backgrounds.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.theme-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.theme-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.theme-card.active {
+    border: 2px solid #3B7DDD;
+}
+
+.theme-preview {
+    height: 150px;
+    overflow: hidden;
+    position: relative;
+}
+
+.theme-preview-navbar {
+    height: 10px;
+    width: 80%;
+    margin: 0 auto;
+    background-color: rgba(255, 255, 255, 0.5);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get current theme from localStorage or default to 'default'
+    const currentTheme = localStorage.getItem('theme') || 'default';
+    
+    // Mark the current theme as active
+    document.querySelector(`.theme-card[data-theme="${currentTheme}"]`)?.classList.add('active');
+    
+    // Add click event to all theme selection buttons
+    document.querySelectorAll('.select-theme').forEach(button => {
+        button.addEventListener('click', function() {
+            const theme = this.getAttribute('data-theme');
+            
+            // Save theme preference
+            localStorage.setItem('theme', theme);
+            
+            // Send theme preference to server
+            fetch('{{ url_for("settings.update_theme") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ theme: theme }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Apply theme immediately
+                    applyTheme(theme);
+                    
+                    // Update active state
+                    document.querySelectorAll('.theme-card').forEach(card => {
+                        card.classList.remove('active');
+                    });
+                    document.querySelector(`.theme-card[data-theme="${theme}"]`).classList.add('active');
+                    
+                    // Show success message
+                    alert('Theme updated successfully!');
+                } else {
+                    alert('Failed to update theme: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while updating the theme.');
+            });
+        });
+    });
+    
+    // Apply the current theme on page load
+    applyTheme(currentTheme);
+    
+    // Function to apply theme
+    function applyTheme(theme) {
+        // Remove any existing theme classes
+        document.body.classList.remove('theme-default', 'theme-data-able', 'theme-teal-minimalist', 'theme-dark-enterprise');
+        
+        // Add the selected theme class
+        document.body.classList.add(`theme-${theme}`);
+        
+        // Apply theme-specific styles
+        switch(theme) {
+            case 'data-able':
+                document.documentElement.style.setProperty('--primary', '#4099ff');
+                document.documentElement.style.setProperty('--font-family', '"Poppins", sans-serif');
+                // Add Google Font if not already loaded
+                if (!document.getElementById('theme-font-poppins')) {
+                    const link = document.createElement('link');
+                    link.id = 'theme-font-poppins';
+                    link.rel = 'stylesheet';
+                    link.href = 'https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap';
+                    document.head.appendChild(link);
+                }
+                break;
+                
+            case 'teal-minimalist':
+                document.documentElement.style.setProperty('--primary', '#00bcd4');
+                document.documentElement.style.setProperty('--font-family', '"Roboto", sans-serif');
+                // Add Google Font if not already loaded
+                if (!document.getElementById('theme-font-roboto')) {
+                    const link = document.createElement('link');
+                    link.id = 'theme-font-roboto';
+                    link.rel = 'stylesheet';
+                    link.href = 'https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap';
+                    document.head.appendChild(link);
+                }
+                break;
+                
+            case 'dark-enterprise':
+                document.documentElement.style.setProperty('--primary', '#7367f0');
+                document.documentElement.style.setProperty('--font-family', '"Inter", sans-serif');
+                document.body.classList.add('dark-mode');
+                break;
+                
+            default: // default theme
+                document.documentElement.style.setProperty('--primary', '#3B7DDD');
+                document.documentElement.style.setProperty('--font-family', '"Inter", sans-serif');
+                document.body.classList.remove('dark-mode');
+                break;
+        }
+    }
+});
+</script>
+{% endblock %}
