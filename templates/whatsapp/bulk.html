@@ -1,0 +1,564 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3">WhatsApp Bulk Messaging</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-light">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to WhatsApp
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Send Bulk Messages</h5>
+                </div>
+                <div class="card-body">
+                    <form id="bulkMessageForm">
+                        <div class="mb-3">
+                            <label for="sessionSelect" class="form-label">WhatsApp Session</label>
+                            <select class="form-select" id="sessionSelect" name="session_id" required>
+                                <option value="" selected disabled>Select a WhatsApp session</option>
+                                {% for session in sessions %}
+                                <option value="{{ session.session_id }}">{{ session.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select the WhatsApp session to use for sending messages.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="recipients" class="form-label">Recipients</label>
+                            <textarea class="form-control" id="recipients" name="recipients" rows="5" placeholder="Enter phone numbers (one per line, or separated by commas)" required></textarea>
+                            <div class="form-text">Enter phone numbers with country code (e.g., +1234567890).</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="message" class="form-label">Message</label>
+                            <textarea class="form-control" id="message" name="message" rows="5" placeholder="Enter your message"></textarea>
+                            <div class="form-text">You can use variables like {name} which will be replaced if found in the recipient data.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="mediaUrl" class="form-label">Media URL (Optional)</label>
+                            <input type="url" class="form-control" id="mediaUrl" name="media_url" placeholder="https://example.com/image.jpg">
+                            <div class="form-text">Enter a URL to an image, video, or document to send with the message.</div>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="queueMessages" name="queue_messages">
+                            <label class="form-check-label" for="queueMessages">Queue messages instead of sending immediately</label>
+                        </div>
+
+                        <div id="queueOptions" class="mb-3 d-none">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="priority" class="form-label">Priority</label>
+                                    <select class="form-select" id="priority" name="priority">
+                                        <option value="0">Normal</option>
+                                        <option value="1">High</option>
+                                        <option value="2">Urgent</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="scheduledAt" class="form-label">Schedule For (Optional)</label>
+                                    <input type="datetime-local" class="form-control" id="scheduledAt" name="scheduled_at">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" id="sendButton" class="btn btn-primary">
+                                <i class="align-middle" data-feather="send"></i> Send Messages
+                            </button>
+                            <button type="button" id="queueButton" class="btn btn-secondary d-none">
+                                <i class="align-middle" data-feather="clock"></i> Queue Messages
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Message Queue Status</h5>
+                </div>
+                <div class="card-body">
+                    <div id="queueStatus">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button type="button" id="processQueueButton" class="btn btn-sm btn-primary">
+                        <i class="align-middle" data-feather="play"></i> Process Queue
+                    </button>
+                    <button type="button" id="refreshQueueButton" class="btn btn-sm btn-secondary">
+                        <i class="align-middle" data-feather="refresh-cw"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Recent Messages</h5>
+                </div>
+                <div class="card-body">
+                    <div id="recentMessages">
+                        {% if recent_queues %}
+                        <div class="list-group">
+                            {% for queue in recent_queues %}
+                            <div class="list-group-item list-group-item-action">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1">{{ queue.recipient }}</h6>
+                                    <small class="text-muted">{{ queue.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                </div>
+                                <p class="mb-1">{{ queue.message[:50] }}{% if queue.message|length > 50 %}...{% endif %}</p>
+                                <small class="text-{{ 'success' if queue.status == 'sent' else 'warning' if queue.status == 'pending' else 'danger' }}">{{ queue.status }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No recent messages</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Modal -->
+    <div class="modal fade" id="resultsModal" tabindex="-1" aria-labelledby="resultsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resultsModalLabel">Message Results</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="resultsContent">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const bulkMessageForm = document.getElementById('bulkMessageForm');
+        const sessionSelect = document.getElementById('sessionSelect');
+        const recipientsTextarea = document.getElementById('recipients');
+        const messageTextarea = document.getElementById('message');
+        const mediaUrlInput = document.getElementById('mediaUrl');
+        const queueMessagesCheckbox = document.getElementById('queueMessages');
+        const queueOptions = document.getElementById('queueOptions');
+        const sendButton = document.getElementById('sendButton');
+        const queueButton = document.getElementById('queueButton');
+        const processQueueButton = document.getElementById('processQueueButton');
+        const refreshQueueButton = document.getElementById('refreshQueueButton');
+        const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
+        const resultsContent = document.getElementById('resultsContent');
+        
+        // Toggle queue options visibility
+        queueMessagesCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                queueOptions.classList.remove('d-none');
+                sendButton.classList.add('d-none');
+                queueButton.classList.remove('d-none');
+            } else {
+                queueOptions.classList.add('d-none');
+                sendButton.classList.remove('d-none');
+                queueButton.classList.add('d-none');
+            }
+        });
+        
+        // Load queue status on page load
+        loadQueueStatus();
+        
+        // Refresh queue status button
+        refreshQueueButton.addEventListener('click', loadQueueStatus);
+        
+        // Send messages button
+        sendButton.addEventListener('click', function() {
+            if (!validateForm()) return;
+            
+            // Show loading state
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Sending...';
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('session_id', sessionSelect.value);
+            formData.append('recipients', recipientsTextarea.value);
+            formData.append('message', messageTextarea.value);
+            if (mediaUrlInput.value) {
+                formData.append('media_url', mediaUrlInput.value);
+            }
+            
+            // Send request
+            fetch('/whatsapp/bulk/send', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Reset button state
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<i class="align-middle" data-feather="send"></i> Send Messages';
+                feather.replace();
+                
+                if (data.success) {
+                    // Show results
+                    showResults(data);
+                    // Refresh queue status
+                    loadQueueStatus();
+                } else {
+                    // Show error
+                    alert('Error: ' + (data.error || 'Failed to send messages'));
+                }
+            })
+            .catch(error => {
+                console.error('Error sending messages:', error);
+                sendButton.disabled = false;
+                sendButton.innerHTML = '<i class="align-middle" data-feather="send"></i> Send Messages';
+                feather.replace();
+                alert('An error occurred while sending messages. Please try again.');
+            });
+        });
+        
+        // Queue messages button
+        queueButton.addEventListener('click', function() {
+            if (!validateForm()) return;
+            
+            // Show loading state
+            queueButton.disabled = true;
+            queueButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Queueing...';
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('session_id', sessionSelect.value);
+            formData.append('recipients', recipientsTextarea.value);
+            formData.append('message', messageTextarea.value);
+            if (mediaUrlInput.value) {
+                formData.append('media_url', mediaUrlInput.value);
+            }
+            formData.append('priority', document.getElementById('priority').value);
+            if (document.getElementById('scheduledAt').value) {
+                formData.append('scheduled_at', document.getElementById('scheduledAt').value);
+            }
+            
+            // Send request
+            fetch('/whatsapp/bulk/queue', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Reset button state
+                queueButton.disabled = false;
+                queueButton.innerHTML = '<i class="align-middle" data-feather="clock"></i> Queue Messages';
+                feather.replace();
+                
+                if (data.success) {
+                    // Show results
+                    showQueueResults(data);
+                    // Refresh queue status
+                    loadQueueStatus();
+                } else {
+                    // Show error
+                    alert('Error: ' + (data.error || 'Failed to queue messages'));
+                }
+            })
+            .catch(error => {
+                console.error('Error queueing messages:', error);
+                queueButton.disabled = false;
+                queueButton.innerHTML = '<i class="align-middle" data-feather="clock"></i> Queue Messages';
+                feather.replace();
+                alert('An error occurred while queueing messages. Please try again.');
+            });
+        });
+        
+        // Process queue button
+        processQueueButton.addEventListener('click', function() {
+            // Show loading state
+            processQueueButton.disabled = true;
+            processQueueButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+            
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('session_id', sessionSelect.value || '');
+            formData.append('batch_size', '50');
+            
+            // Send request
+            fetch('/whatsapp/bulk/process-queue', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Reset button state
+                processQueueButton.disabled = false;
+                processQueueButton.innerHTML = '<i class="align-middle" data-feather="play"></i> Process Queue';
+                feather.replace();
+                
+                if (data.success) {
+                    // Show alert
+                    alert(data.message);
+                    // Refresh queue status
+                    loadQueueStatus();
+                } else {
+                    // Show error
+                    alert('Error: ' + (data.error || 'Failed to process queue'));
+                }
+            })
+            .catch(error => {
+                console.error('Error processing queue:', error);
+                processQueueButton.disabled = false;
+                processQueueButton.innerHTML = '<i class="align-middle" data-feather="play"></i> Process Queue';
+                feather.replace();
+                alert('An error occurred while processing the queue. Please try again.');
+            });
+        });
+        
+        // Validate form
+        function validateForm() {
+            if (!sessionSelect.value) {
+                alert('Please select a WhatsApp session');
+                sessionSelect.focus();
+                return false;
+            }
+            
+            if (!recipientsTextarea.value.trim()) {
+                alert('Please enter at least one recipient');
+                recipientsTextarea.focus();
+                return false;
+            }
+            
+            if (!messageTextarea.value.trim() && !mediaUrlInput.value.trim()) {
+                alert('Please enter a message or provide a media URL');
+                messageTextarea.focus();
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Load queue status
+        function loadQueueStatus() {
+            const queueStatus = document.getElementById('queueStatus');
+            
+            // Show loading state
+            queueStatus.innerHTML = `
+                <div class="d-flex justify-content-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `;
+            
+            // Send request
+            fetch('/whatsapp/bulk/queue-status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update queue status
+                        const status = data.queue_status;
+                        queueStatus.innerHTML = `
+                            <div class="row text-center">
+                                <div class="col-6 col-xl-3 mb-3">
+                                    <div class="card card-body py-2">
+                                        <h2 class="mb-0">${status.pending}</h2>
+                                        <p class="mb-0 text-muted">Pending</p>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-xl-3 mb-3">
+                                    <div class="card card-body py-2">
+                                        <h2 class="mb-0">${status.processing}</h2>
+                                        <p class="mb-0 text-muted">Processing</p>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-xl-3 mb-3">
+                                    <div class="card card-body py-2">
+                                        <h2 class="mb-0">${status.sent}</h2>
+                                        <p class="mb-0 text-muted">Sent</p>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-xl-3 mb-3">
+                                    <div class="card card-body py-2">
+                                        <h2 class="mb-0">${status.failed}</h2>
+                                        <p class="mb-0 text-muted">Failed</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // Update recent messages
+                        updateRecentMessages(data.recent_messages);
+                    } else {
+                        // Show error
+                        queueStatus.innerHTML = `
+                            <div class="alert alert-danger" role="alert">
+                                <i class="align-middle" data-feather="alert-circle"></i>
+                                Error loading queue status: ${data.error || 'Unknown error'}
+                            </div>
+                        `;
+                        feather.replace();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading queue status:', error);
+                    queueStatus.innerHTML = `
+                        <div class="alert alert-danger" role="alert">
+                            <i class="align-middle" data-feather="alert-circle"></i>
+                            Error loading queue status. Please try again.
+                        </div>
+                    `;
+                    feather.replace();
+                });
+        }
+        
+        // Update recent messages
+        function updateRecentMessages(messages) {
+            const recentMessages = document.getElementById('recentMessages');
+            
+            if (!messages || messages.length === 0) {
+                recentMessages.innerHTML = '<p class="text-muted">No recent messages</p>';
+                return;
+            }
+            
+            let html = '<div class="list-group">';
+            
+            messages.forEach(msg => {
+                const statusClass = msg.status === 'sent' ? 'success' : 
+                                  msg.status === 'pending' ? 'warning' : 'danger';
+                
+                html += `
+                    <div class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">${msg.recipient}</h6>
+                            <small class="text-muted">${new Date(msg.created_at).toLocaleString()}</small>
+                        </div>
+                        <small class="text-${statusClass}">${msg.status}</small>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            recentMessages.innerHTML = html;
+        }
+        
+        // Show results in modal
+        function showResults(data) {
+            let html = `
+                <div class="alert alert-success">
+                    <i class="align-middle" data-feather="check-circle"></i>
+                    ${data.message}
+                </div>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="card card-body py-2">
+                            <h2 class="mb-0">${data.success_count}</h2>
+                            <p class="mb-0 text-muted">Successful</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card card-body py-2">
+                            <h2 class="mb-0">${data.failed_count}</h2>
+                            <p class="mb-0 text-muted">Failed</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (data.results && data.results.length > 0) {
+                html += '<h5>Detailed Results</h5>';
+                html += '<div class="table-responsive">';
+                html += '<table class="table table-sm table-striped">';
+                html += '<thead><tr><th>Recipient</th><th>Status</th><th>Message ID</th><th>Error</th></tr></thead>';
+                html += '<tbody>';
+                
+                data.results.forEach(result => {
+                    const statusClass = result.status === 'success' ? 'success' : 'danger';
+                    html += `<tr>
+                        <td>${result.recipient}</td>
+                        <td><span class="badge bg-${statusClass}">${result.status}</span></td>
+                        <td>${result.message_id || '-'}</td>
+                        <td>${result.error || '-'}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            resultsContent.innerHTML = html;
+            feather.replace();
+            resultsModal.show();
+        }
+        
+        // Show queue results in modal
+        function showQueueResults(data) {
+            let html = `
+                <div class="alert alert-success">
+                    <i class="align-middle" data-feather="check-circle"></i>
+                    ${data.message}
+                </div>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="card card-body py-2">
+                            <h2 class="mb-0">${data.success_count}</h2>
+                            <p class="mb-0 text-muted">Queued Successfully</p>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="card card-body py-2">
+                            <h2 class="mb-0">${data.failed_count}</h2>
+                            <p class="mb-0 text-muted">Failed to Queue</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            if (data.failed_recipients && data.failed_recipients.length > 0) {
+                html += '<h5>Failed Recipients</h5>';
+                html += '<div class="table-responsive">';
+                html += '<table class="table table-sm table-striped">';
+                html += '<thead><tr><th>Recipient</th><th>Error</th></tr></thead>';
+                html += '<tbody>';
+                
+                data.failed_recipients.forEach(recipient => {
+                    html += `<tr>
+                        <td>${recipient.recipient}</td>
+                        <td>${recipient.error || 'Unknown error'}</td>
+                    </tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            resultsContent.innerHTML = html;
+            feather.replace();
+            resultsModal.show();
+        }
+    });
+</script>
+{% endblock %}

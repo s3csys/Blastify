@@ -11,7 +11,6 @@ import qrcode
 from PIL import Image
 import io
 import json
-from app.models.api_credential import ApiCredential
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +32,19 @@ class BaseMessageService(ABC):
         pass
 
 class WhatsAppService(BaseMessageService):
-    """Service for sending WhatsApp messages using Green API."""
+    """Service for sending WhatsApp messages using WhatsApp Web.
     
-    def __init__(self, generate_qr=False):
-        """Initialize the WhatsApp service with Green API."""
+    This service handles authentication, QR code generation, and message sending
+    for WhatsApp using the WhatsApp Web client.
+    """
+    
+    def __init__(self, session_name=None):
+        """Initialize WhatsApp service.
+        
+        Args:
+            session_name: Optional name of WhatsApp session to use
+        """
         try:
-            from whatsapp_api_client_python import API
-            self.API = API  # Store API class for later use
-            
             # Create application-specific directories
             self.app_data_dir = os.path.join(os.getcwd(), 'app_data')
             os.makedirs(self.app_data_dir, exist_ok=True)
@@ -49,21 +53,24 @@ class WhatsAppService(BaseMessageService):
             self.session_path = os.path.join(self.app_data_dir, 'whatsapp_session')
             os.makedirs(self.session_path, exist_ok=True)
             
-            # Store credentials file path
-            self.credentials_file = os.path.join(self.session_path, 'credentials.json')
-            
-            # Load credentials
-            self._load_credentials()
-            
-            # Initialize Green API client with loaded credentials
-            self.green_api = self.API.GreenAPI(self.instance_id, self.api_token)
-            
             self.is_logged_in = False
             self.qr_code_base64 = None
+            self.session_name = None
             
-            # If generate_qr is True, get QR code
-            if generate_qr:
-                self.qr_code_base64 = self._get_qr_code()
+            # Initialize with WhatsApp Web client
+            from app.services.whatsapp.client import WhatsAppClient
+            from app.services.whatsapp.message import WhatsAppMessageService
+            
+            self.message_service = None
+            
+            # Load session if provided
+            if session_name:
+                self.session = self.get_session_by_name(session_name)
+                if self.session:
+                    self.session_name = session_name
+            else:
+                # Try to get first active session
+                self.session = self._get_session()
             
         except ImportError as e:
             logger.error(f"Required package not installed: {str(e)}")
@@ -72,108 +79,94 @@ class WhatsAppService(BaseMessageService):
             logger.error(f"Error initializing WhatsApp service: {str(e)}")
             raise
     
-    def _load_credentials(self, credential_name=None):
-        """Load Green API credentials from database or file.
+    def _get_session(self, session_name=None):
+        """Get or create a WhatsApp Web session.
         
         Args:
-            credential_name: Optional name of the credential set to load
+            session_name: Optional name of the session to use
             
         Returns:
-            Tuple of (instance_id, api_token)
+            WhatsApp session object or None if not found
         """
         try:
-            # Try to load from database first
-            db_instance_id = ApiCredential.get_credential('whatsapp', credential_name, 'instance_id')
-            db_api_token = ApiCredential.get_credential('whatsapp', credential_name, 'api_token')
+            from app.models.whatsapp_session import WhatsAppSession
             
-            if db_instance_id and db_api_token:
-                self.instance_id = db_instance_id
-                self.api_token = db_api_token
-                logger.info(f"Loaded WhatsApp credentials from database for {credential_name if credential_name else 'default'}")
-                return (self.instance_id, self.api_token)
-                
-            # If not in database, try to load from file
-            elif os.path.exists(self.credentials_file):
-                with open(self.credentials_file, 'r') as f:
-                    credentials = json.load(f)
-                    self.instance_id = credentials.get('instance_id')
-                    self.api_token = credentials.get('api_token')
-                    logger.info("Loaded WhatsApp credentials from file")
-                    
-                    # Save to database for future use
-                    if self.instance_id and self.api_token:
-                        ApiCredential.set_credential('whatsapp', 'instance_id', self.instance_id, credential_name)
-                        ApiCredential.set_credential('whatsapp', 'api_token', self.api_token, credential_name)
-                    
-                    return (self.instance_id, self.api_token)
+            # If session name provided, try to get that specific session
+            if session_name:
+                session = WhatsAppSession.get_session_by_name(session_name)
+                if session:
+                    logger.info(f"Found WhatsApp session: {session_name}")
+                    return session
             
-            # If no credentials found, set placeholder values
-            self.instance_id = "your_instance_id"
-            self.api_token = "your_api_token"
-            logger.warning("No WhatsApp credentials found in database or file")
-            return (None, None)
+            # Otherwise, get the first active session
+            active_sessions = WhatsAppSession.get_active_sessions()
+            if active_sessions:
+                logger.info(f"Using active WhatsApp session: {active_sessions[0].name}")
+                return active_sessions[0]
+            
+            logger.warning("No active WhatsApp sessions found")
+            return None
                 
         except Exception as e:
-            logger.error(f"Error loading credentials: {str(e)}")
-            self.instance_id = "your_instance_id"
-            self.api_token = "your_api_token"
-            return (None, None)
+            logger.error(f"Error getting WhatsApp session: {str(e)}")
+            return None
     
-    def save_credentials(self, instance_id, api_token, credential_name=None):
-        """Save Green API credentials to database and file.
+    def create_session(self, session_name):
+        """Create a new WhatsApp Web session.
         
         Args:
-            instance_id: The Green API instance ID
-            api_token: The Green API token
-            credential_name: Optional name to identify this credential set
+            session_name: Name for the new session
             
         Returns:
-            Boolean indicating success
+            Dictionary with session creation status and session ID if successful
         """
         try:
-            # Update instance variables
-            self.instance_id = instance_id
-            self.api_token = api_token
+            from app.services.whatsapp.auth import WhatsAppAuth
             
-            # Save to database
-            ApiCredential.set_credential('whatsapp', 'instance_id', instance_id, credential_name)
-            ApiCredential.set_credential('whatsapp', 'api_token', api_token, credential_name)
+            # Create a new session
+            result = WhatsAppAuth.create_session(session_name)
             
-            # Also save to file as backup
-            with open(self.credentials_file, 'w') as f:
-                json.dump({
-                    'instance_id': instance_id,
-                    'api_token': api_token,
-                    'credential_name': credential_name
-                }, f)
-            
-            # Reinitialize Green API client with new credentials
-            self.green_api = self.API.GreenAPI(instance_id, api_token)
-                
-            logger.info(f"Saved WhatsApp credentials to database and file for {credential_name if credential_name else 'default'}")
-            return True
+            if result.get("status") == "success":
+                logger.info(f"Created new WhatsApp session: {session_name}")
+                return True
+            else:
+                logger.error(f"Failed to create WhatsApp session: {result.get('error')}")
+                return False
         except Exception as e:
-            logger.error(f"Error saving credentials: {str(e)}")
+            logger.error(f"Error creating WhatsApp session: {str(e)}")
             return False
     
-    def generate_qr_code(self):
+    def generate_qr_code(self, session_id=None):
         """Generate QR code for WhatsApp Web authentication.
         
+        Args:
+            session_id: Optional session ID to use
+            
         Returns:
             Base64 encoded string of the QR code image or None if failed
         """
         try:
-            # Get QR code from Green API
-            response = self.green_api.account.qr()
+            from app.services.whatsapp.auth import WhatsAppAuth
             
-            if response and hasattr(response, 'code') and response.code == 200:
-                # The response contains the QR code in base64 format
-                qr_base64 = response.data.get('qrCode')
+            # If no session ID provided, try to get one
+            if not session_id:
+                session = self._get_session()
+                if session:
+                    session_id = session.session_id
+                else:
+                    logger.error("No active session found for QR code generation")
+                    return None
+            
+            # Connect to WhatsApp Web and get QR code
+            result = WhatsAppAuth.connect_session(session_id)
+            
+            if result.get("status") == "success" and "qr_code" in result:
+                qr_base64 = result.get("qr_code")
                 self.qr_code_base64 = qr_base64
                 logger.info("Generated WhatsApp QR code")
                 return qr_base64
             else:
-                error_msg = getattr(response, 'error', 'Unknown error') if response else 'No response received'
+                error_msg = result.get("error", "Unknown error")
                 logger.error(f"Error generating QR code: {error_msg}")
                 return None
         except Exception as e:
@@ -181,37 +174,49 @@ class WhatsAppService(BaseMessageService):
             return None
     
     # Keep the existing _get_qr_code method for backward compatibility
-    def _get_qr_code(self):
+    def _get_qr_code(self, session_id=None):
         """Get the QR code for WhatsApp Web authentication.
         
+        Args:
+            session_id: Optional session ID to use
+            
         Returns:
             Base64 encoded string of the QR code image
         """
-        return self.generate_qr_code()
+        return self.generate_qr_code(session_id)
     
-    def is_connected(self):
+    def is_connected(self, session_id=None):
         """Check if WhatsApp is connected.
         
+        Args:
+            session_id: Optional session ID to check
+            
         Returns:
             Boolean indicating if WhatsApp is connected
         """
         try:
-            # Check instance state
-            response = self.green_api.account.getStateInstance()
+            from app.models.whatsapp_session import WhatsAppSession
             
-            if response.code == 200:
-                # Check if the state is 'authorized'
-                state = response.data.get('stateInstance')
-                return state == 'authorized'
-            else:
-                logger.error(f"Error checking WhatsApp connection: {response.error}")
+            # If no session ID provided, try to get one
+            if not session_id:
+                session = self._get_session()
+                if not session:
+                    return False
+                session_id = session.session_id
+            
+            # Get session from database
+            session = WhatsAppSession.get_session_by_id(session_id)
+            if not session:
                 return False
+            
+            # Check if session is connected
+            return session.status == "connected"
         except Exception as e:
             logger.error(f"Error checking WhatsApp connection: {str(e)}")
             return False
 
     def send_message(self, recipient, message, media_url=None):
-        """Send a WhatsApp message using Green API.
+        """Send a WhatsApp message using WhatsApp Web.
         
         Args:
             recipient: The recipient's phone number with country code
@@ -232,59 +237,45 @@ class WhatsAppService(BaseMessageService):
             if phone.startswith('+'):
                 phone = phone[1:]
             
-            # Format the chat ID for Green API
-            chat_id = f"{phone}@c.us"
+            # Get session
+            session = self._get_session()
+            if not session:
+                return {'status': 'failed', 'error': 'No active WhatsApp session found'}
             
-            # If media_url is provided, send it as well
+            # Initialize WhatsApp message service
+            from app.services.whatsapp.message import WhatsAppMessageService
+            message_service = WhatsAppMessageService(session_id=session.session_id)
+            
+            # Determine media type if provided
+            media_type = None
             if media_url:
-                # Determine media type and send appropriate message
                 media_ext = media_url.split('.')[-1].lower()
-                
                 if media_ext in ['jpg', 'jpeg', 'png']:
-                    # Send image with caption
-                    response = self.green_api.sending.sendFileByUrl(
-                        chat_id,
-                        media_url,
-                        f"image.{media_ext}",
-                        message
-                    )
+                    media_type = 'image'
                 elif media_ext in ['mp4', 'avi', 'mov']:
-                    # Send video with caption
-                    response = self.green_api.sending.sendFileByUrl(
-                        chat_id,
-                        media_url,
-                        f"video.{media_ext}",
-                        message
-                    )
+                    media_type = 'video'
                 elif media_ext in ['mp3', 'wav', 'ogg']:
-                    # Send audio with caption
-                    response = self.green_api.sending.sendFileByUrl(
-                        chat_id,
-                        media_url,
-                        f"audio.{media_ext}",
-                        message
-                    )
+                    media_type = 'audio'
                 else:
-                    # Send document with caption
-                    response = self.green_api.sending.sendFileByUrl(
-                        chat_id,
-                        media_url,
-                        f"document.{media_ext}",
-                        message
-                    )
-            else:
-                # Send text message
-                response = self.green_api.sending.sendMessage(chat_id, message)
+                    media_type = 'document'
             
-            if response.code == 200:
+            # Send message
+            result = message_service.send_message(
+                phone=phone,
+                message=message,
+                media_url=media_url,
+                media_type=media_type
+            )
+            
+            if result.get('status') == 'success':
                 return {
                     'status': 'sent',
-                    'message_id': response.data.get('idMessage', f"wa_{int(time.time())}")
+                    'message_id': result.get('message_id', f"wa_{int(time.time())}")
                 }
             else:
                 return {
                     'status': 'failed',
-                    'error': response.error
+                    'error': result.get('message', 'Unknown error')
                 }
             
         except Exception as e:
@@ -294,63 +285,94 @@ class WhatsAppService(BaseMessageService):
                 'error': str(e)
             }
     
-    # Add these methods to WhatsAppService class
-    def load_credential_by_name(self, credential_name):
-        """Load a specific credential set by name.
+    def _determine_media_type(self, url):
+        """Determine media type from URL.
         
         Args:
-            credential_name: The name of the credential set to load
+            url: URL to media file
             
         Returns:
-            Dictionary with credential details or None if not found
+            Media type string (image, video, document, audio)
+        """
+        # Get file extension
+        ext = url.split('.')[-1].lower()
+        
+        # Determine media type based on extension
+        if ext in ['jpg', 'jpeg', 'png', 'gif']:
+            return "image"
+        elif ext in ['mp4', 'avi', 'mov', 'webm']:
+            return "video"
+        elif ext in ['mp3', 'wav', 'ogg', 'm4a']:
+            return "audio"
+        elif ext in ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt']:
+            return "document"
+        else:
+            return "document"  # Default to document
+    
+    def get_session_by_name(self, session_name):
+        """Get WhatsApp session by name.
+        
+        Args:
+            session_name: Name of the session
+            
+        Returns:
+            WhatsAppSession object or None if not found
         """
         try:
-            # Get credentials from database
-            instance_id = ApiCredential.get_credential('whatsapp', credential_name, 'instance_id')
-            api_token = ApiCredential.get_credential('whatsapp', credential_name, 'api_token')
+            from app.models.whatsapp_session import WhatsAppSession
             
-            if not instance_id or not api_token:
-                logger.warning(f"Credential set '{credential_name}' not found or incomplete")
-                return None
-                
-            # Update instance variables
-            self.instance_id = instance_id
-            self.api_token = api_token
-            
-            # Reinitialize Green API client with new credentials
-            self.green_api = self.API.GreenAPI(instance_id, api_token)
-            
-            logger.info(f"Loaded WhatsApp credentials for '{credential_name}'")
-            return {'credential_name': credential_name, 'instance_id': instance_id, 'api_token': api_token}
+            # Get session from database
+            session = WhatsAppSession.get_session_by_name(session_name)
+            return session
         except Exception as e:
-            logger.error(f"Error loading credential set '{credential_name}': {str(e)}")
+            logger.error(f"Error getting session: {str(e)}")
             return None
-
-    def delete_credential(self, credential_name):
-        """Delete a credential set by name.
+    
+    def delete_session(self, session_name):
+        """Delete WhatsApp session by name.
         
         Args:
-            credential_name: The name of the credential set to delete
+            session_name: Name of the session to delete
             
         Returns:
-            Boolean indicating success
+            Boolean indicating if session was deleted successfully
         """
         try:
-            return ApiCredential.delete_credential_set('whatsapp', credential_name)
-        except Exception as e:
-            logger.error(f"Error deleting credential set '{credential_name}': {str(e)}")
-            return False
+            from app.models.whatsapp_session import WhatsAppSession
             
-    def get_all_credentials(self):
-        """Get all saved WhatsApp credential sets.
+            # Get session from database
+            session = WhatsAppSession.get_session_by_name(session_name)
+            if not session:
+                logger.error(f"No session found with name: {session_name}")
+                return False
+            
+            # Delete session
+            result = session.delete()
+            
+            if result:
+                logger.info(f"Deleted WhatsApp session: {session_name}")
+                return True
+            else:
+                logger.error(f"Failed to delete session: {session_name}")
+                return False
+        except Exception as e:
+            logger.error(f"Error deleting session: {str(e)}")
+            return False
+    
+    def get_all_sessions(self):
+        """Get all WhatsApp sessions.
         
         Returns:
-            List of credential sets with names
+            List of WhatsAppSession objects
         """
         try:
-            return ApiCredential.get_credential_sets('whatsapp')
+            from app.models.whatsapp_session import WhatsAppSession
+            
+            # Get all sessions from database
+            sessions = WhatsAppSession.get_all_active_sessions()
+            return sessions
         except Exception as e:
-            logger.error(f"Error getting WhatsApp credentials: {str(e)}")
+            logger.error(f"Error getting sessions: {str(e)}")
             return []
 
 class TelegramService(BaseMessageService):

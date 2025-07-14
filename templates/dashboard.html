@@ -315,8 +315,8 @@
 												<tbody>
 													{% for message in recent_messages %}
 													<tr>
-														<td>{{ message.contact.name if message.contact else message.to }}</td>
-														<td>{{ message.content[:30] }}{% if message.content|length > 30 %}...{% endif %}</td>
+														<td>{{ message.recipient }}</td>
+														<td>{{ message.message_text[:30] }}{% if message.message_text|length > 30 %}...{% endif %}</td>
 														<td>
 															{% if message.status == 'delivered' %}
 															<span class="badge bg-success">Delivered</span>

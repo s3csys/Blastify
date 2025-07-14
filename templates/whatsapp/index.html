@@ -8,7 +8,8 @@
         </div>
 
         <div class="col-auto ms-auto text-end mt-n1">
-            <a href="{{ url_for('whatsapp_web.connect') }}" class="btn btn-primary">Connect New Device</a>
+            <a href="{{ url_for('whatsapp_web.generate_qr_page') }}" class="btn btn-success">Generate QR Code</a>
+            <a href="{{ url_for('whatsapp_web.connect') }}" class="btn btn-primary">Connect Device</a>
             <a href="{{ url_for('whatsapp_web.settings') }}" class="btn btn-light">Settings</a>
         </div>
     </div>
@@ -158,8 +159,11 @@
                         </div>
                         <h4>No WhatsApp Sessions Connected</h4>
                         <p class="text-muted">Connect your WhatsApp account to start sending messages.</p>
+                        <a href="{{ url_for('whatsapp_web.generate_qr_page') }}" class="btn btn-success mt-2 me-2">
+                            <i class="align-middle" data-feather="qr-code"></i> Generate QR Code
+                        </a>
                         <a href="{{ url_for('whatsapp_web.connect') }}" class="btn btn-primary mt-2">
-                            <i class="align-middle" data-feather="plus"></i> Connect WhatsApp
+                            <i class="align-middle" data-feather="plus"></i> Connect Device
                         </a>
                     </div>
                     {% endif %}

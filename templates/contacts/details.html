@@ -114,7 +114,7 @@
                                             {% for message in messages %}
                                                 <tr>
                                                     <td>{{ message.created_at|datetime }}</td>
-                                                    <td>{{ message.content|truncate(50) }}</td>
+                                                    <td>{{ message.message_text|truncate(50) }}</td>
                                                     <td>
                                                         {% if message.status == 'delivered' %}
                                                             <span class="badge bg-success">Delivered</span>
@@ -919,7 +919,7 @@
                             
                             row.innerHTML = `
                                 <td>${formattedDate}</td>
-                                <td>${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}</td>
+                                <td>${message.message_text.substring(0, 50)}${message.message_text.length > 50 ? '...' : ''}</td>
                                 <td>${statusBadge}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-primary view-message-btn" data-message-id="${message.id}">
@@ -979,7 +979,7 @@
                     }
                     
                     document.getElementById('viewMessageStatus').innerHTML = statusBadge;
-                    document.getElementById('viewMessageContent').textContent = message.content;
+                    document.getElementById('viewMessageContent').textContent = message.message_text;
                     
                     // Show/hide error details
                     const errorContainer = document.getElementById('viewMessageErrorContainer');

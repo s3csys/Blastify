@@ -6,7 +6,7 @@ from app import db
 from app.models.user import User
 from app.models.contact import Contact
 from app.models.message import Message
-from app.models.api_credential import ApiCredential
+from app.models.settings import Settings
 
 # Import WhatsApp models
 from app.models.whatsapp_session import WhatsAppSession, WhatsAppDevice

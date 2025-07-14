@@ -209,11 +209,17 @@ def create_app(config_class=None):
             import humanize
             from datetime import datetime, timezone
             
-            # Ensure dt is timezone-aware for comparison
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-                
+            # Get current time in UTC
             now = datetime.now(timezone.utc)
+            
+            # Handle timezone-naive datetimes (convert both to naive for comparison)
+            if dt.tzinfo is None:
+                # If input is naive, make comparison with naive now
+                now = now.replace(tzinfo=None)
+            else:
+                # If input has timezone, ensure it's UTC
+                dt = dt.astimezone(timezone.utc)
+                
             return humanize.naturaltime(dt, when=now)
         except (ImportError, AttributeError, ValueError):
             # Fallback to basic ISO format if humanize fails
@@ -229,6 +235,10 @@ def register_blueprints(app):
     # API routes - keep this for API endpoints
     from app.routes.message import bp as message_bp
     app.register_blueprint(message_bp, url_prefix='/messages')  # Changed from '/api/messages' to '/messages'
+    
+    # API routes
+    from app.routes.api import bp as api_bp
+    app.register_blueprint(api_bp)
     
     # Web routes
     from app.routes.auth import bp as auth_bp
@@ -247,6 +257,10 @@ def register_blueprints(app):
     # WhatsApp Web routes
     from app.routes.whatsapp_web import bp as whatsapp_web_bp
     app.register_blueprint(whatsapp_web_bp)
+    
+    # WhatsApp Bulk Messaging routes
+    from app.routes.whatsapp_bulk import bp as whatsapp_bulk_bp
+    app.register_blueprint(whatsapp_bulk_bp)
     
     # Settings routes
     from app.routes.settings import bp as settings_bp

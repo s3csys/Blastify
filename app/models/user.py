@@ -25,6 +25,9 @@ class User(db.Model, UserMixin):  # Add UserMixin here
     two_factor_enabled = db.Column(db.Boolean, default=False)
     two_factor_secret = db.Column(db.String(32))
     
+    # Relationships
+    whatsapp_sessions = db.relationship('WhatsAppSession', backref='user', lazy='dynamic')
+    
     # Add property for initials
     @property
     def initials(self):

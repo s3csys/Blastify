@@ -77,6 +77,49 @@ class WhatsAppAuth:
             }
     
     @staticmethod
+    def get_session_qr(session_id: str) -> Dict[str, Any]:
+        """Get the QR code for a WhatsApp session.
+        
+        Args:
+            session_id: ID of the session to get QR code for
+            
+        Returns:
+            Dictionary with QR code data or error
+        """
+        try:
+            # Get session from database
+            session = WhatsAppSession.get_session_by_id(session_id)
+            if not session:
+                return {
+                    "status": "failed",
+                    "error": f"Session with ID '{session_id}' not found"
+                }
+            
+            # If session already has a QR code, return it
+            if session.qr_code:
+                return {
+                    "status": "success",
+                    "qr_code": session.qr_code
+                }
+            
+            # If session is already connected, return error
+            if session.status == "connected":
+                return {
+                    "status": "failed",
+                    "error": "Session is already connected"
+                }
+            
+            # Connect to get a new QR code
+            return WhatsAppAuth.connect_session(session_id)
+            
+        except Exception as e:
+            logger.error(f"Error getting session QR code: {str(e)}")
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
+    
+    @staticmethod
     def get_session_status(session_id: str) -> Dict[str, Any]:
         """Get the status of a WhatsApp session.
         

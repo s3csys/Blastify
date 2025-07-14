@@ -31,46 +31,38 @@
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label for="credentialName" class="form-label">Credential</label>
-                                    <select class="form-select" id="credentialName" name="credential_name" required>
-                                        <option value="" selected disabled>Select a credential</option>
-                                        <!-- Credentials will be populated dynamically -->
+                                    <label for="sessionName" class="form-label">Session</label>
+                                    <select class="form-select" id="sessionName" name="session_name" required>
+                                        <option value="" selected disabled>Select a session</option>
+                                        <!-- Sessions will be populated dynamically -->
                                     </select>
-                                    <div class="form-text">Select the credential to use for this WhatsApp connection.</div>
+                                    <div class="form-text">Select the session to use for this WhatsApp connection.</div>
                                 </div>
 
                                 <div class="d-grid gap-2">
-                                    <button type="button" id="generateQrButton" class="btn btn-primary">
-                                        <i class="align-middle" data-feather="qr-code"></i> Generate QR Code
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="align-middle" data-feather="link"></i> Connect Device
                                     </button>
+                                </div>
+                                
+                                <div class="mt-3 text-center">
+                                    <p>Don't have a session yet?</p>
+                                    <a href="{{ url_for('whatsapp_web.generate_qr_page') }}" class="btn btn-outline-primary">
+                                        <i class="align-middle" data-feather="qr-code"></i> Generate New QR Code
+                                    </a>
                                 </div>
                             </form>
                         </div>
                         <div class="col-md-6 text-center">
-                            <div id="qrCodeContainer" class="d-none">
-                                <div class="mb-3">
-                                    <div id="qrCode" class="mx-auto" style="width: 256px; height: 256px;"></div>
-                                </div>
-                                <div class="alert alert-info" role="alert">
-                                    <i class="align-middle" data-feather="info"></i>
-                                    Scan this QR code with WhatsApp on your phone to connect.
-                                </div>
-                                <div id="connectionStatus" class="mt-3">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                    <p class="mt-2">Waiting for connection...</p>
-                                </div>
-                            </div>
                             <div id="initialInstructions">
                                 <div class="mb-4">
                                     <i class="align-middle" data-feather="smartphone" style="width: 64px; height: 64px;"></i>
                                 </div>
                                 <h4>Connect Your WhatsApp</h4>
-                                <p class="text-muted">Fill in the details and click "Generate QR Code" to connect your WhatsApp account.</p>
-                                <div class="alert alert-warning mt-3">
-                                    <i class="align-middle" data-feather="alert-triangle"></i>
-                                    Make sure WhatsApp is installed on your phone and you have an active internet connection.
+                                <p class="text-muted">Select a session and enter a device name to connect your WhatsApp device.</p>
+                                <div class="alert alert-info mt-3">
+                                    <i class="align-middle" data-feather="info"></i>
+                                    If you haven't created a session yet, click on "Generate New QR Code" to create one.
                                 </div>
                             </div>
                         </div>
@@ -84,15 +76,18 @@
                 </div>
                 <div class="card-body">
                     <ol class="mb-0">
+                        <li class="mb-2">If you don't have a WhatsApp session yet, click on <strong>"Generate New QR Code"</strong> to create one.</li>
+                        <li class="mb-2">Once you have created a session by scanning the QR code with your phone, return to this page.</li>
                         <li class="mb-2">Enter a name for this WhatsApp connection.</li>
-                        <li class="mb-2">Select the credential to use for this connection.</li>
-                        <li class="mb-2">Click the "Generate QR Code" button.</li>
-                        <li class="mb-2">Open WhatsApp on your phone.</li>
-                        <li class="mb-2">Tap Menu <strong>⋮</strong> or <strong>Settings</strong> and select <strong>Linked Devices</strong>.</li>
-                        <li class="mb-2">Tap on <strong>Link a Device</strong>.</li>
-                        <li class="mb-2">Point your phone camera at the QR code on the screen to scan it.</li>
-                        <li>Wait for the connection to be established.</li>
+                        <li class="mb-2">Select the session you created from the dropdown.</li>
+                        <li class="mb-2">Click the <strong>"Connect Device"</strong> button.</li>
+                        <li>Your device will now be connected to the WhatsApp session.</li>
                     </ol>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="align-middle" data-feather="info"></i>
+                        <strong>Note:</strong> You need to create a session first by generating and scanning a QR code before you can connect a device.
+                    </div>
                 </div>
             </div>
         </div>
@@ -103,162 +98,56 @@
 {% block javascript %}
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        const generateQrButton = document.getElementById('generateQrButton');
-        const qrCodeContainer = document.getElementById('qrCodeContainer');
-        const initialInstructions = document.getElementById('initialInstructions');
-        const connectionStatus = document.getElementById('connectionStatus');
-        const qrCodeElement = document.getElementById('qrCode');
-        const credentialSelect = document.getElementById('credentialName');
-        const deviceNameInput = document.getElementById('deviceName');
+        const sessionSelect = document.getElementById('sessionName');
+        const connectForm = document.getElementById('whatsappConnectForm');
         
-        // Load credentials
-        fetch('/api/credentials/whatsapp')
+        // Load sessions
+        fetch('/api/sessions/whatsapp')
             .then(response => response.json())
             .then(data => {
-                if (data.success && data.credentials.length > 0) {
-                    data.credentials.forEach(credential => {
+                if (data.success && data.sessions.length > 0) {
+                    data.sessions.forEach(session => {
                         const option = document.createElement('option');
-                        option.value = credential.name;
-                        option.textContent = credential.name;
-                        credentialSelect.appendChild(option);
+                        option.value = session.name;
+                        option.textContent = session.name;
+                        sessionSelect.appendChild(option);
                     });
                 } else {
                     const option = document.createElement('option');
                     option.value = "";
-                    option.textContent = "No credentials available";
-                    credentialSelect.appendChild(option);
-                    generateQrButton.disabled = true;
+                    option.textContent = "No sessions available";
+                    sessionSelect.appendChild(option);
+                    document.querySelector('button[type="submit"]').disabled = true;
                 }
             })
             .catch(error => {
-                console.error('Error loading credentials:', error);
+                console.error('Error loading sessions:', error);
                 const option = document.createElement('option');
                 option.value = "";
-                option.textContent = "Error loading credentials";
-                credentialSelect.appendChild(option);
-                generateQrButton.disabled = true;
+                option.textContent = "Error loading sessions";
+                sessionSelect.appendChild(option);
+                document.querySelector('button[type="submit"]').disabled = true;
             });
         
-        // Generate QR code
-        generateQrButton.addEventListener('click', function() {
-            const deviceName = deviceNameInput.value.trim();
-            const credentialName = credentialSelect.value;
+        // Form validation
+        connectForm.addEventListener('submit', function(event) {
+            const deviceName = document.getElementById('deviceName').value.trim();
+            const sessionName = sessionSelect.value;
             
             if (!deviceName) {
+                event.preventDefault();
                 alert('Please enter a device name');
-                return;
+                return false;
             }
             
-            if (!credentialName) {
-                alert('Please select a credential');
-                return;
+            if (!sessionName) {
+                event.preventDefault();
+                alert('Please select a session');
+                return false;
             }
             
-            // Show loading state
-            generateQrButton.disabled = true;
-            generateQrButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
-            
-            // Send request to generate QR code
-            const formData = new FormData();
-            formData.append('device_name', deviceName);
-            formData.append('credential_name', credentialName);
-            
-            fetch('/message/generate-whatsapp-qr', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Hide instructions and show QR code
-                    initialInstructions.classList.add('d-none');
-                    qrCodeContainer.classList.remove('d-none');
-                    
-                    // Display QR code
-                    qrCodeElement.innerHTML = '';
-                    new QRCode(qrCodeElement, {
-                        text: data.qr_code,
-                        width: 256,
-                        height: 256
-                    });
-                    
-                    // Start checking connection status
-                    checkConnectionStatus(data.session_id);
-                } else {
-                    alert('Error: ' + (data.error || 'Failed to generate QR code'));
-                    resetGenerateButton();
-                }
-            })
-            .catch(error => {
-                console.error('Error generating QR code:', error);
-                alert('An error occurred while generating the QR code. Please try again.');
-                resetGenerateButton();
-            });
+            return true;
         });
-        
-        function resetGenerateButton() {
-            generateQrButton.disabled = false;
-            generateQrButton.innerHTML = '<i class="align-middle" data-feather="qr-code"></i> Generate QR Code';
-            feather.replace();
-        }
-        
-        function checkConnectionStatus(sessionId) {
-            const statusCheckInterval = setInterval(() => {
-                fetch(`/whatsapp/check-connection-status/${sessionId}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.connected) {
-                            clearInterval(statusCheckInterval);
-                            connectionStatus.innerHTML = `
-                                <div class="alert alert-success" role="alert">
-                                    <i class="align-middle" data-feather="check-circle"></i>
-                                    WhatsApp connected successfully!
-                                </div>
-                                <div class="d-grid gap-2 mt-3">
-                                    <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-primary">Go to WhatsApp Dashboard</a>
-                                </div>
-                            `;
-                            feather.replace();
-                        } else if (data.error) {
-                            clearInterval(statusCheckInterval);
-                            connectionStatus.innerHTML = `
-                                <div class="alert alert-danger" role="alert">
-                                    <i class="align-middle" data-feather="alert-circle"></i>
-                                    Connection failed: ${data.error}
-                                </div>
-                                <div class="d-grid gap-2 mt-3">
-                                    <button type="button" class="btn btn-primary" onclick="location.reload()">
-                                        Try Again
-                                    </button>
-                                </div>
-                            `;
-                            feather.replace();
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error checking connection status:', error);
-                    });
-            }, 3000); // Check every 3 seconds
-            
-            // Stop checking after 2 minutes (120 seconds) if no connection
-            setTimeout(() => {
-                clearInterval(statusCheckInterval);
-                if (!document.querySelector('.alert-success')) {
-                    connectionStatus.innerHTML = `
-                        <div class="alert alert-warning" role="alert">
-                            <i class="align-middle" data-feather="clock"></i>
-                            QR code expired. Please try again.
-                        </div>
-                        <div class="d-grid gap-2 mt-3">
-                            <button type="button" class="btn btn-primary" onclick="location.reload()">
-                                Try Again
-                            </button>
-                        </div>
-                    `;
-                    feather.replace();
-                }
-            }, 120000);
-        }
     });
 </script>
 {% endblock %}

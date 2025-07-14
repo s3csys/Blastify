@@ -169,8 +169,8 @@ def compose():
         return redirect(url_for('auth.login'))
     
     # Check if WhatsApp is connected
-    whatsapp_session_path = os.path.join(os.getcwd(), 'whatsapp_session')
-    whatsapp_connected = os.path.exists(whatsapp_session_path) and os.listdir(whatsapp_session_path)
+    from app.models.whatsapp_session import WhatsAppSession
+    whatsapp_connected = WhatsAppSession.query.filter_by(status='connected', is_active=True).first() is not None
     
     # Check if Telegram is connected
     # This would depend on your implementation

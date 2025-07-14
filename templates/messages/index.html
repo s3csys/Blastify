@@ -41,7 +41,7 @@
                                 <tr>
                                     <td>{{ message.id }}</td>
                                     <td>{{ message.recipient }}</td>
-                                    <td>{{ message.content|truncate(50) }}</td>
+                                    <td>{{ message.message_text|truncate(50) }}</td>
                                     <td>
                                         {% if message.status == 'delivered' %}
                                         <span class="badge bg-success">Delivered</span>

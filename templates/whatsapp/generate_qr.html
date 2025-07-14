@@ -1,0 +1,220 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3">Generate WhatsApp QR Code</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-light">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to WhatsApp
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Generate WhatsApp QR Code</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <form id="whatsappQrForm" method="POST" action="{{ url_for('whatsapp_web.generate_qr_code') }}">
+                                <div class="mb-3">
+                                    <label for="deviceName" class="form-label">Device Name</label>
+                                    <input type="text" class="form-control" id="deviceName" name="device_name" required placeholder="e.g. My Business Phone">
+                                    <div class="form-text">Give this WhatsApp connection a name to identify it later.</div>
+                                </div>
+                                
+                                <div class="d-grid gap-2">
+                                    <button type="button" id="generateQrButton" class="btn btn-primary">
+                                        <i class="align-middle" data-feather="qr-code"></i> Generate QR Code
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        <div class="col-md-6 text-center">
+                            <div id="qrCodeContainer" class="d-none">
+                                <div class="mb-3">
+                                    <div id="qrCode" class="mx-auto" style="width: 256px; height: 256px;"></div>
+                                </div>
+                                <div class="alert alert-info" role="alert">
+                                    <i class="align-middle" data-feather="info"></i>
+                                    Scan this QR code with WhatsApp on your phone to connect.
+                                </div>
+                                <div id="connectionStatus" class="mt-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Waiting for connection...</p>
+                                </div>
+                            </div>
+                            <div id="initialInstructions">
+                                <div class="mb-4">
+                                    <i class="align-middle" data-feather="smartphone" style="width: 64px; height: 64px;"></i>
+                                </div>
+                                <h4>Generate WhatsApp QR Code</h4>
+                                <p class="text-muted">Enter a device name and click "Generate QR Code" to create a new WhatsApp session.</p>
+                                <div class="alert alert-warning mt-3">
+                                    <i class="align-middle" data-feather="alert-triangle"></i>
+                                    Make sure WhatsApp is installed on your phone and you have an active internet connection.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">QR Code Instructions</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li class="mb-2">Enter a name for this WhatsApp connection.</li>
+                        <li class="mb-2">Click the "Generate QR Code" button.</li>
+                        <li class="mb-2">Open WhatsApp on your phone.</li>
+                        <li class="mb-2">Tap Menu <strong>⋮</strong> or <strong>Settings</strong> and select <strong>Linked Devices</strong>.</li>
+                        <li class="mb-2">Tap on <strong>Link a Device</strong>.</li>
+                        <li class="mb-2">Point your phone camera at the QR code on the screen to scan it.</li>
+                        <li class="mb-2">Wait for the connection to be established.</li>
+                        <li>After successful connection, you can use the session to connect your device.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const generateQrButton = document.getElementById('generateQrButton');
+        const qrCodeContainer = document.getElementById('qrCodeContainer');
+        const initialInstructions = document.getElementById('initialInstructions');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const qrCodeElement = document.getElementById('qrCode');
+        const deviceNameInput = document.getElementById('deviceName');
+        
+        // Generate QR code
+        generateQrButton.addEventListener('click', function() {
+            const deviceName = deviceNameInput.value.trim();
+            
+            if (!deviceName) {
+                alert('Please enter a device name');
+                return;
+            }
+            
+            // Show loading state
+            generateQrButton.disabled = true;
+            generateQrButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
+            
+            // Send request to generate QR code
+            const formData = new FormData();
+            formData.append('device_name', deviceName);
+            
+            fetch('/whatsapp/generate-qr-code', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide instructions and show QR code
+                    initialInstructions.classList.add('d-none');
+                    qrCodeContainer.classList.remove('d-none');
+                    
+                    // Display QR code
+                    qrCodeElement.innerHTML = '';
+                    new QRCode(qrCodeElement, {
+                        text: data.qr_code,
+                        width: 256,
+                        height: 256
+                    });
+                    
+                    // Start checking connection status
+                    checkConnectionStatus(data.session_id);
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to generate QR code'));
+                    resetGenerateButton();
+                }
+            })
+            .catch(error => {
+                console.error('Error generating QR code:', error);
+                alert('An error occurred while generating the QR code. Please try again.');
+                resetGenerateButton();
+            });
+        });
+        
+        function resetGenerateButton() {
+            generateQrButton.disabled = false;
+            generateQrButton.innerHTML = '<i class="align-middle" data-feather="qr-code"></i> Generate QR Code';
+            feather.replace();
+        }
+        
+        function checkConnectionStatus(sessionId) {
+            const statusCheckInterval = setInterval(() => {
+                fetch(`/whatsapp/check-connection-status/${sessionId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.connected) {
+                            clearInterval(statusCheckInterval);
+                            connectionStatus.innerHTML = `
+                                <div class="alert alert-success" role="alert">
+                                    <i class="align-middle" data-feather="check-circle"></i>
+                                    WhatsApp connected successfully!
+                                </div>
+                                <div class="d-grid gap-2 mt-3">
+                                    <a href="{{ url_for('whatsapp_web.connect') }}" class="btn btn-primary">Connect Device Using This Session</a>
+                                    <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-secondary">Go to WhatsApp Dashboard</a>
+                                </div>
+                            `;
+                            feather.replace();
+                        } else if (data.error) {
+                            clearInterval(statusCheckInterval);
+                            connectionStatus.innerHTML = `
+                                <div class="alert alert-danger" role="alert">
+                                    <i class="align-middle" data-feather="alert-circle"></i>
+                                    Connection failed: ${data.error}
+                                </div>
+                                <div class="d-grid gap-2 mt-3">
+                                    <button type="button" class="btn btn-primary" onclick="location.reload()">
+                                        Try Again
+                                    </button>
+                                </div>
+                            `;
+                            feather.replace();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking connection status:', error);
+                    });
+            }, 3000); // Check every 3 seconds
+            
+            // Stop checking after 2 minutes (120 seconds) if no connection
+            setTimeout(() => {
+                clearInterval(statusCheckInterval);
+                if (!document.querySelector('.alert-success')) {
+                    connectionStatus.innerHTML = `
+                        <div class="alert alert-warning" role="alert">
+                            <i class="align-middle" data-feather="clock"></i>
+                            QR code expired. Please try again.
+                        </div>
+                        <div class="d-grid gap-2 mt-3">
+                            <button type="button" class="btn btn-primary" onclick="location.reload()">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                    feather.replace();
+                }
+            }, 120000);
+        }
+    });
+</script>
+{% endblock %}

@@ -5,6 +5,7 @@ import time
 import logging
 import base64
 import threading
+import os
 from datetime import datetime
 from typing import Dict, List, Optional, Callable, Any, Union
 
@@ -89,8 +90,30 @@ class WhatsAppClient:
             chrome_options.add_argument("--window-size=1280,800")
             chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
             
-            # Initialize Chrome driver
-            service = Service(ChromeDriverManager().install())
+            # Initialize Chrome driver with cross-platform support
+            # Check if we should use a specific ChromeDriver path
+            chromedriver_dir = os.path.join(os.getcwd(), 'app_data', 'chromedriver')
+            
+            # Create the directory if it doesn't exist
+            os.makedirs(chromedriver_dir, exist_ok=True)
+            
+            # Determine the correct chromedriver executable based on OS
+            if os.name == 'nt':  # Windows
+                chromedriver_name = 'chromedriver.exe'
+            else:  # Linux/Mac
+                chromedriver_name = 'chromedriver'
+                
+            chromedriver_path = os.path.join(chromedriver_dir, chromedriver_name)
+            
+            # Check if the specific chromedriver exists, use it if available
+            if os.path.exists(chromedriver_path):
+                service = Service(executable_path=chromedriver_path)
+                logger.info(f"Using ChromeDriver from: {chromedriver_path}")
+            else:
+                # Fall back to webdriver-manager if no specific driver is available
+                logger.info("No specific ChromeDriver found, using webdriver-manager")
+                service = Service(ChromeDriverManager().install())
+                
             self.driver = webdriver.Chrome(service=service, options=chrome_options)
             
             # Navigate to WhatsApp Web

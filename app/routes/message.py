@@ -3,11 +3,12 @@ import os
 import json  # Add this import
 from flask import Blueprint, request, jsonify, current_app, session, redirect, url_for, render_template, flash
 from flask_login import login_required, current_user  # Add this import
+from flask import send_from_directory  # Add this import for templates_media route
 from app.services.message_service import MessageService, WhatsAppService  # Added WhatsAppService import
 from app.utils.validators import validate_message_request
 from app.models.message import Message
 from app.models.user import User
-from app.models.api_credential import ApiCredential  # Add this import
+from app.models.whatsapp_session import WhatsAppSession  # Replace ApiCredential with WhatsAppSession
 from app import db
 
 bp = Blueprint('message', __name__)
@@ -216,11 +217,11 @@ def connect_messaging():
     whatsapp_connected = False
     telegram_connected = False
     
-    # Create WhatsApp service to manage credentials
+    # Create WhatsApp service
     whatsapp_service = WhatsAppService()
     
-    # Get available credential sets
-    whatsapp_credentials = ApiCredential.get_credential_sets('whatsapp')
+    # Get available WhatsApp sessions
+    whatsapp_sessions = whatsapp_service.get_all_sessions()
     
     # Check actual WhatsApp connection status
     try:
@@ -234,46 +235,30 @@ def connect_messaging():
         
         if service == 'whatsapp':
             try:
-                # Get instance ID, token, and credential name from form if provided
-                instance_id = request.form.get('instance_id')
-                api_token = request.form.get('api_token')
-                credential_name = request.form.get('credential_name')
+                # Get session name from form if provided
+                session_name = request.form.get('session_name')
                 
-                # Check if we're loading an existing credential set
-                load_credential_id = request.form.get('load_credential_id')
+                # If no session name provided, generate one
+                if not session_name:
+                    import uuid
+                    session_name = f"WhatsApp-{str(uuid.uuid4())[:8]}"
                 
-                if load_credential_id:
-                    # Find the credential set by name
-                    for cred in whatsapp_credentials:
-                        if cred.get('name') == load_credential_id:
-                            instance_id = cred.get('instance_id')
-                            api_token = cred.get('api_token')
-                            credential_name = cred.get('name')
-                            break
+                # Create a new WhatsApp session
+                result = whatsapp_service.create_session(session_name, user_id=user.id)
                 
-                # Update credentials if provided
-                if instance_id and api_token:
-                    # If no credential name provided, use instance ID as name
-                    if not credential_name:
-                        credential_name = f"WhatsApp-{instance_id[:8]}"
-                        
-                    # Save credentials using the service method
-                    if whatsapp_service.save_credentials(instance_id, api_token, credential_name):
-                        flash(f"Green API credentials saved as '{credential_name}'.", "success")
-                        
-                        # Try to connect with the new credentials
-                        try:
-                            if whatsapp_service.is_connected():
-                                whatsapp_connected = True
-                                flash("Successfully connected to WhatsApp", "success")
-                            else:
-                                flash("Credentials saved but connection failed. Please check your credentials.", "warning")
-                        except Exception as e:
-                            flash(f"Credentials saved but error checking connection: {str(e)}", "warning")
+                if result.get('status') == 'success':
+                    flash(f"WhatsApp session '{session_name}' created. Scan the QR code to connect.", "success")
+                    
+                    # Generate QR code
+                    qr_code = whatsapp_service.generate_qr_code(result.get('session_id'))
+                    if qr_code:
+                        # Store QR code in session for display
+                        session['whatsapp_qr_code'] = qr_code
+                        session['whatsapp_session_id'] = result.get('session_id')
                     else:
-                        flash("Failed to save Green API credentials", "error")
+                        flash("Failed to generate QR code. Please try again.", "warning")
                 else:
-                    flash("Instance ID and API Token are required", "error")
+                    flash(f"Failed to create WhatsApp session: {result.get('message', 'Unknown error')}", "error")
                 
             except Exception as e:
                 current_app.logger.error(f"Error connecting to WhatsApp: {str(e)}")
@@ -286,7 +271,7 @@ def connect_messaging():
     return render_template('connect_messaging.html', 
                           whatsapp_connected=whatsapp_connected,
                           telegram_connected=telegram_connected,
-                          whatsapp_credentials=whatsapp_credentials,
+                          whatsapp_sessions=whatsapp_sessions,
                           user=user)
 
 
@@ -305,20 +290,27 @@ def disconnect_service(service):
     
     try:
         if service == 'whatsapp':
-            # Implement WhatsApp disconnection logic for Green API
+            # Implement WhatsApp disconnection logic for WhatsApp Web
             try:
                 # Create WhatsApp service
                 whatsapp_service = WhatsAppService()
                 
-                # Logout from Green API
-                if whatsapp_service.is_connected():
-                    # Call logout method
-                    whatsapp_service.green_api.account.logout()
+                # Get all active sessions
+                sessions = whatsapp_service.get_all_sessions()
                 
-                # Remove credentials file
-                credentials_file = os.path.join(os.getcwd(), 'app_data', 'whatsapp_session', 'credentials.json')
-                if os.path.exists(credentials_file):
-                    os.remove(credentials_file)
+                # Disconnect all sessions
+                from app.services.whatsapp.client import WhatsAppClient
+                for session in sessions:
+                    try:
+                        # Close the browser session
+                        client = WhatsAppClient(session_id=session.session_id)
+                        client.disconnect()
+                        
+                        # Update session status
+                        session.status = "disconnected"
+                        db.session.commit()
+                    except Exception as session_error:
+                        current_app.logger.error(f"Error disconnecting session {session.session_id}: {str(session_error)}")
                 
                 # Verify disconnection
                 if not whatsapp_service.is_connected():
@@ -326,7 +318,7 @@ def disconnect_service(service):
                 else:
                     flash("Failed to disconnect from WhatsApp. Please try again.", "error")
             except Exception as e:
-                current_app.logger.error(f"Error during WhatsApp logout: {str(e)}")  # Changed from logger to current_app.logger
+                current_app.logger.error(f"Error during WhatsApp logout: {str(e)}")
                 flash(f"Error disconnecting from WhatsApp: {str(e)}", "error")
         
         elif service == 'telegram':
@@ -351,9 +343,9 @@ def clear_whatsapp_flag():
     return jsonify({'success': True})
 
 
-@bp.route('/manage-credentials', methods=['POST'])
-def manage_credentials():
-    """Manage API credentials (add, edit, delete).
+@bp.route('/manage-sessions', methods=['POST'])
+def manage_sessions():
+    """Manage WhatsApp sessions (create, delete, connect).
     
     Returns:
         Redirect to the connect messaging page
@@ -367,50 +359,64 @@ def manage_credentials():
     if service == 'whatsapp':
         whatsapp_service = WhatsAppService()
         
-        if action == 'add' or action == 'edit':
+        if action == 'create':
             # Get form data
-            instance_id = request.form.get('instance_id')
-            api_token = request.form.get('api_token')
-            credential_name = request.form.get('credential_name')
+            session_name = request.form.get('session_name')
             
-            if not instance_id or not api_token or not credential_name:
-                flash("All fields are required", "error")
-            else:
-                # Save credentials
-                if whatsapp_service.save_credentials(instance_id, api_token, credential_name):
-                    flash(f"Credentials '{credential_name}' saved successfully", "success")
+            if not session_name:
+                # Generate a session name if not provided
+                import uuid
+                session_name = f"WhatsApp-{str(uuid.uuid4())[:8]}"
+            
+            # Create a new session
+            user_id = session.get('user_id')
+            result = whatsapp_service.create_session(session_name, user_id=user_id)
+            
+            if result.get('status') == 'success':
+                # Generate QR code
+                qr_code = whatsapp_service.generate_qr_code(result.get('session_id'))
+                if qr_code:
+                    # Store QR code in session for display
+                    session['whatsapp_qr_code'] = qr_code
+                    session['whatsapp_session_id'] = result.get('session_id')
+                    flash(f"Session '{session_name}' created successfully. Scan the QR code to connect.", "success")
                 else:
-                    flash("Failed to save credentials", "error")
+                    flash("Session created but failed to generate QR code. Try connecting again.", "warning")
+            else:
+                flash(f"Failed to create session: {result.get('message', 'Unknown error')}", "error")
                     
         elif action == 'delete':
-            credential_name = request.form.get('credential_name')
+            session_name = request.form.get('session_name')
             
-            if not credential_name:
-                flash("Credential name is required", "error")
+            if not session_name:
+                flash("Session name is required", "error")
             else:
-                # Delete credentials
-                if whatsapp_service.delete_credential(credential_name):
-                    flash(f"Credentials '{credential_name}' deleted successfully", "success")
+                # Delete session
+                if whatsapp_service.delete_session(session_name):
+                    flash(f"Session '{session_name}' deleted successfully", "success")
                 else:
-                    flash("Failed to delete credentials", "error")
+                    flash("Failed to delete session", "error")
                     
         elif action == 'connect':
-            credential_name = request.form.get('credential_name')
+            session_name = request.form.get('session_name')
             
-            if not credential_name:
-                flash("Credential name is required", "error")
+            if not session_name:
+                flash("Session name is required", "error")
             else:
-                # Load and connect with selected credentials
-                if whatsapp_service.load_credential_by_name(credential_name):
-                    try:
-                        if whatsapp_service.is_connected():
-                            flash(f"Successfully connected to WhatsApp using '{credential_name}'", "success")
-                        else:
-                            flash(f"Loaded credentials '{credential_name}' but connection failed", "warning")
-                    except Exception as e:
-                        flash(f"Error checking connection: {str(e)}", "error")
+                # Get session and generate QR code
+                session_obj = whatsapp_service.get_session_by_name(session_name)
+                if not session_obj:
+                    flash(f"Session '{session_name}' not found", "error")
                 else:
-                    flash(f"Failed to load credentials '{credential_name}'", "error")
+                    # Generate QR code
+                    qr_code = whatsapp_service.generate_qr_code(session_obj.session_id)
+                    if qr_code:
+                        # Store QR code in session for display
+                        session['whatsapp_qr_code'] = qr_code
+                        session['whatsapp_session_id'] = session_obj.session_id
+                        flash(f"Connecting to session '{session_name}'. Scan the QR code.", "success")
+                    else:
+                        flash("Failed to generate QR code. Try again.", "error")
     
     return redirect(url_for('message.connect_messaging'))
 
@@ -431,17 +437,20 @@ def generate_whatsapp_qr():
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
     
     try:
-        credential_name = request.form.get('credential_name')
-        if not credential_name:
-            return jsonify({'success': False, 'error': 'Credential name is required'}), 400
+        session_name = request.form.get('session_name')
+        if not session_name:
+            return jsonify({'success': False, 'error': 'Session name is required'}), 400
         
-        # Create WhatsApp service with the selected credential
-        whatsapp_service = WhatsAppService()
-        if not whatsapp_service.load_credential_by_name(credential_name):
-            return jsonify({'success': False, 'error': 'Failed to load credentials'}), 400
+        # Create WhatsApp service with the selected session
+        whatsapp_service = WhatsAppService(session_name)
+        
+        # Get session and generate QR code
+        session_obj = whatsapp_service.get_session_by_name(session_name)
+        if not session_obj:
+            return jsonify({'success': False, 'error': f"Session '{session_name}' not found"}), 400
         
         # Generate QR code
-        qr_code_base64 = whatsapp_service.generate_qr_code()
+        qr_code_base64 = whatsapp_service.generate_qr_code(session_obj.session_id)
         if not qr_code_base64:
             return jsonify({'success': False, 'error': 'Failed to generate QR code'}), 500
         
@@ -465,17 +474,20 @@ def check_whatsapp_connection():
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
     
     try:
-        credential_name = request.form.get('credential_name')
-        if not credential_name:
-            return jsonify({'success': False, 'error': 'Credential name is required'}), 400
+        session_name = request.form.get('session_name')
+        if not session_name:
+            return jsonify({'success': False, 'error': 'Session name is required'}), 400
         
-        # Create WhatsApp service with the selected credential
-        whatsapp_service = WhatsAppService()
-        if not whatsapp_service.load_credential_by_name(credential_name):
-            return jsonify({'success': False, 'error': 'Failed to load credentials'}), 400
+        # Create WhatsApp service with the selected session
+        whatsapp_service = WhatsAppService(session_name)
+        
+        # Get session
+        session_obj = whatsapp_service.get_session_by_name(session_name)
+        if not session_obj:
+            return jsonify({'success': False, 'error': f"Session '{session_name}' not found"}), 400
         
         # Check connection status
-        connected = whatsapp_service.is_connected()
+        connected = whatsapp_service.is_connected(session_obj.session_id)
         
         return jsonify({
             'success': True,

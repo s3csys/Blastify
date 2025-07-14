@@ -10,10 +10,12 @@ class WhatsAppSession(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128), nullable=False, unique=True)
-    session_id = db.Column(db.String(64), nullable=False, unique=True)
+    session_id = db.Column(db.String(64), nullable=True, unique=True)
     session_data = db.Column(db.Text, nullable=True)  # Stores serialized session data
     qr_code = db.Column(db.Text, nullable=True)  # Stores base64 encoded QR code
     status = db.Column(db.String(32), default='disconnected')  # connected, disconnected, connecting
+    credential = db.Column(db.String(128), nullable=True)  # Credential name used for this session
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     last_connected = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

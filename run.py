@@ -4,7 +4,7 @@ import os
 from app import create_app, db
 from app.models.user import User
 from app.models.message import Message
-from app.models.api_credential import ApiCredential
+from app.models.whatsapp_session import WhatsAppSession
 
 # Set environment variables for webdriver-manager
 os.environ['WDM_SSL_VERIFY'] = '0'
@@ -28,7 +28,7 @@ def make_shell_context():
         'db': db,
         'User': User,
         'Message': Message,
-        'ApiCredential': ApiCredential
+        'WhatsAppSession': WhatsAppSession
     }
 
 if __name__ == '__main__':

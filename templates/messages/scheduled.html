@@ -51,7 +51,7 @@
                                             <span class="badge bg-secondary">Custom: {{ message.recipients_count }} recipients</span>
                                         {% endif %}
                                     </td>
-                                    <td>{{ message.content|truncate(50) }}</td>
+                                    <td>{{ message.message_text|truncate(50) }}</td>
                                     <td>{{ message.scheduled_at }}</td>
                                     <td>{{ message.created_at }}</td>
                                     <td>
