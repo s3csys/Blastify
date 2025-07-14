@@ -131,11 +131,24 @@
                     
                     // Display QR code
                     qrCodeElement.innerHTML = '';
-                    new QRCode(qrCodeElement, {
-                        text: data.qr_code,
-                        width: 256,
-                        height: 256
-                    });
+                    
+                    // Check if the qr_code is a data URL (starts with 'data:')
+                    if (data.qr_code.startsWith('data:')) {
+                        // It's already an image, display it directly
+                        const qrImage = document.createElement('img');
+                        qrImage.src = data.qr_code;
+                        qrImage.width = 256;
+                        qrImage.height = 256;
+                        qrImage.alt = 'WhatsApp QR Code';
+                        qrCodeElement.appendChild(qrImage);
+                    } else {
+                        // It's text, generate QR code from it
+                        new QRCode(qrCodeElement, {
+                            text: data.qr_code,
+                            width: 256,
+                            height: 256
+                        });
+                    }
                     
                     // Start checking connection status
                     checkConnectionStatus(data.session_id);

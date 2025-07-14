@@ -110,11 +110,46 @@ class WhatsAppClient:
                 service = Service(executable_path=chromedriver_path)
                 logger.info(f"Using ChromeDriver from: {chromedriver_path}")
             else:
-                # Fall back to webdriver-manager if no specific driver is available
-                logger.info("No specific ChromeDriver found, using webdriver-manager")
-                service = Service(ChromeDriverManager().install())
-                
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                # Try to download ChromeDriver using the setup script
+                logger.info("ChromeDriver not found. Attempting to download it automatically...")
+                try:
+                    if os.name == 'nt':  # Windows
+                        setup_script = os.path.join(chromedriver_dir, 'setup_chromedriver.bat')
+                        if os.path.exists(setup_script):
+                            import subprocess
+                            subprocess.run([setup_script], shell=True, check=True)
+                            logger.info("ChromeDriver downloaded successfully")
+                        else:
+                            logger.warning(f"Setup script not found: {setup_script}")
+                    else:  # Linux/Mac
+                        setup_script = os.path.join(chromedriver_dir, 'setup_chromedriver.sh')
+                        if os.path.exists(setup_script):
+                            import subprocess
+                            subprocess.run(['bash', setup_script], check=True)
+                            logger.info("ChromeDriver downloaded successfully")
+                        else:
+                            logger.warning(f"Setup script not found: {setup_script}")
+                            
+                    # Check if download was successful
+                    if os.path.exists(chromedriver_path):
+                        service = Service(executable_path=chromedriver_path)
+                        logger.info(f"Using newly downloaded ChromeDriver from: {chromedriver_path}")
+                    else:
+                        # Fall back to webdriver-manager if download failed
+                        logger.info("Automatic download failed, using webdriver-manager")
+                        service = Service(ChromeDriverManager().install())
+                except Exception as e:
+                    logger.error(f"Error downloading ChromeDriver: {str(e)}")
+                    # Fall back to webdriver-manager
+                    logger.info("Using webdriver-manager as fallback")
+                    service = Service(ChromeDriverManager().install())
+            
+            # Create the Chrome driver
+            try:
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+            except Exception as e:
+                logger.error(f"Error creating Chrome driver: {str(e)}")
+                raise ValueError(f"Failed to initialize Chrome driver: {str(e)}. Please ensure Chrome is installed and up to date.")
             
             # Navigate to WhatsApp Web
             self.driver.get("https://web.whatsapp.com/")
