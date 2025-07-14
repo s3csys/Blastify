@@ -21,7 +21,8 @@
                     <h5 class="card-title">New Message</h5>
                 </div>
                 <div class="card-body">
-                    <form id="composeForm" action="{{ url_for('message.send') }}" method="POST" enctype="multipart/form-data">
+                    <form id="composeForm" action="{{ url_for('message.send_message') }}" method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="platform" value="whatsapp">
                         <div class="mb-3">
                             <label class="form-label">Recipients</label>
                             <div class="row">

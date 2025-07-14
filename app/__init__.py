@@ -20,6 +20,57 @@ migrate = Migrate()
 login_manager = LoginManager()
 
 
+def initialize_admin_user(app):
+    """Initialize admin user from environment variables if it doesn't exist.
+    Also updates the admin user if environment variables have changed.
+    
+    Args:
+        app: Flask application instance
+    """
+    from app.models.user import User
+    
+    admin_username = app.config['ADMIN_USERNAME']
+    admin_email = app.config['ADMIN_EMAIL']
+    admin_password = app.config['ADMIN_PASSWORD']
+    
+    # Check if admin user exists
+    admin_user = User.query.filter_by(username=admin_username).first()
+    
+    if not admin_user:
+        app.logger.info(f"Creating admin user: {admin_username}")
+        admin_user = User(
+            username=admin_username,
+            email=admin_email,
+            is_active=True
+        )
+        admin_user.set_password(admin_password)
+        db.session.add(admin_user)
+        db.session.commit()
+        app.logger.info(f"Admin user created successfully")
+    else:
+        # Check if admin user details need updating
+        updated = False
+        
+        # Update email if changed
+        if admin_user.email != admin_email:
+            app.logger.info(f"Updating admin email from {admin_user.email} to {admin_email}")
+            admin_user.email = admin_email
+            updated = True
+        
+        # Always ensure admin user is active
+        if not admin_user.is_active:
+            app.logger.info(f"Activating admin user account")
+            admin_user.is_active = True
+            updated = True
+            
+        # Commit changes if any updates were made
+        if updated:
+            db.session.commit()
+            app.logger.info(f"Admin user updated successfully")
+        else:
+            app.logger.info(f"Admin user already exists and is up to date")
+
+
 def configure_logging(app):
     """Configure application logging based on environment variables.
     
@@ -136,10 +187,10 @@ def create_app(config_class=None):
         return redirect(url_for('dashboard.index'))
     
     # Initialize database
-    @app.before_first_request
-    def initialize_database():
-        """Create database tables if they don't exist."""
+        # Initialize database tables
+    with app.app_context():
         db.create_all()
+        initialize_admin_user(app)
     
     # Add context processor for templates
     @app.context_processor

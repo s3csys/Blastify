@@ -172,10 +172,10 @@ def set_env(force):
         shutil.copy2(env_example_path, env_path)
         click.echo(click.style(".env file created successfully from .env.example", fg='green'))
         
-        # # Ask if user wants to customize values
-        # customize = click.confirm("Do you want to customize environment variables?", default=True)
-        # if customize:
-        #     customize_env_variables(env_path)
+        # Ask if user wants to customize values
+        customize = click.confirm("Do you want to customize environment variables?", default=True)
+        if customize:
+            customize_env_variables(env_path)
         
         # Reload environment variables
         load_dotenv(env_path, override=True)
@@ -183,6 +183,20 @@ def set_env(force):
         
     except Exception as e:
         click.echo(click.style(f"Error creating .env file: {str(e)}", fg='red'))
+
+
+@env_utils.command()
+@with_appcontext
+def create_admin():
+    """Create or update the admin user from environment variables."""
+    try:
+        from app import initialize_admin_user
+        
+        click.echo("Initializing admin user from environment variables...")
+        initialize_admin_user(app)
+        click.echo(click.style("Admin user initialization completed successfully.", fg='green'))
+    except Exception as e:
+        click.echo(click.style(f"Error initializing admin user: {str(e)}", fg='red'))
 
 
 def customize_env_variables(env_path):

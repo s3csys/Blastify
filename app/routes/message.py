@@ -17,15 +17,72 @@ def send_message():
     """Send a message to a single recipient.
     
     Returns:
-        JSON response with status of the message send operation
+        JSON response with status of the message send operation or redirect to message history
     """
     try:
-        data = request.get_json()
+        # Handle both JSON and form data
+        if request.is_json:
+            data = request.get_json()
+        else:
+            # Handle form data
+            recipient_type = request.form.get('recipient_type')
+            message_content = request.form.get('content')
+            
+            # Determine recipient based on recipient type
+            recipient = None
+            if recipient_type == 'individual':
+                # Get selected contacts
+                individual_contacts = request.form.getlist('individual_contacts[]')
+                if individual_contacts:
+                    # For simplicity, use the first contact
+                    recipient = individual_contacts[0]  # In a real app, you'd handle multiple recipients
+            elif recipient_type == 'group':
+                # Get selected group
+                contact_group = request.form.get('contact_group')
+                # Here you would fetch all contacts in this group
+                # For now, just use the group ID as a placeholder
+                recipient = f"group:{contact_group}"
+            elif recipient_type == 'custom':
+                # Get custom numbers
+                custom_numbers = request.form.get('custom_numbers')
+                if custom_numbers:
+                    # Split by comma and use first number
+                    numbers = [num.strip() for num in custom_numbers.split(',')]
+                    if numbers:
+                        recipient = numbers[0]  # In a real app, you'd handle multiple recipients
+            
+            data = {
+                'platform': request.form.get('platform', 'whatsapp'),
+                'recipient': recipient,
+                'message': message_content,
+                'media_url': None  # Handle file upload separately
+            }
+            
+            # Handle file upload if present
+            if 'media' in request.files and request.files['media'].filename:
+                # Save the file and get the URL
+                # This is a placeholder - implement file storage logic
+                file = request.files['media']
+                # Example: file.save(os.path.join(upload_folder, file.filename))
+                data['media_url'] = f"/uploads/{file.filename}"
         
         # Validate request data
-        errors = validate_message_request(data)
-        if errors:
-            return jsonify({'success': False, 'errors': errors}), 400
+        if request.is_json:
+            errors = validate_message_request(data)
+            if errors:
+                return jsonify({'success': False, 'errors': errors}), 400
+        else:
+            # Basic validation for form data
+            errors = []
+            if not data.get('recipient'):
+                errors.append('Recipient is required')
+            if not data.get('message'):
+                errors.append('Message content is required')
+                
+            if errors:
+                for error in errors:
+                    flash(error, 'danger')
+                return redirect(url_for('message.compose'))
         
         # Create message service based on platform
         platform = data.get('platform', 'whatsapp').lower()
@@ -49,19 +106,28 @@ def send_message():
         db.session.add(message)
         db.session.commit()
         
-        return jsonify({
-            'success': True,
-            'message_id': message.id,
-            'status': result['status']
-        })
+        # Return JSON or redirect based on request type
+        if request.is_json:
+            return jsonify({
+                'success': True,
+                'message_id': message.id,
+                'status': result['status']
+            })
+        else:
+            flash('Message sent successfully!', 'success')
+            return redirect(url_for('message.index'))
         
     except Exception as e:
         current_app.logger.error(f"Error sending message: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Failed to send message',
-            'details': str(e)
-        }), 500
+        if request.is_json:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to send message',
+                'details': str(e)
+            }), 500
+        else:
+            flash(f'Failed to send message: {str(e)}', 'danger')
+            return redirect(url_for('message.compose'))
 
 @bp.route('/bulk/send', methods=['POST'])
 def send_bulk_messages():

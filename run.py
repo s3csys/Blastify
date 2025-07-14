@@ -15,9 +15,11 @@ os.environ['WDM_USE_POWERSHELL'] = 'false'
 
 app = create_app()
 
-# Ensure database tables are created
+# Ensure database tables are created and admin user exists
+from app import initialize_admin_user
 with app.app_context():
     db.create_all()
+    initialize_admin_user(app)
 
 @app.shell_context_processor
 def make_shell_context():
