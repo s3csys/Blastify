@@ -7,17 +7,83 @@ from flask import Flask, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
-from flask_login import LoginManager  # Add this import
-from dotenv import load_dotenv
-from datetime import datetime  # Add this import
+from flask_login import LoginManager
+from dotenv import load_dotenv, find_dotenv, set_key
+from datetime import datetime
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file with override to allow dynamic reloading
+load_dotenv(override=True)
 
 # Initialize extensions
 db = SQLAlchemy()
 migrate = Migrate()
-login_manager = LoginManager()  # Add this line
+login_manager = LoginManager()
+
+
+def configure_logging(app):
+    """Configure application logging based on environment variables.
+    
+    Args:
+        app: Flask application instance
+    """
+    # Create logs directory if it doesn't exist
+    log_dir = app.config['LOG_DIR']
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    # Set log level
+    log_level_name = app.config['LOG_LEVEL']
+    log_level = getattr(logging, log_level_name.upper(), logging.INFO)
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=log_level,
+        format=app.config['LOG_FORMAT'],
+        datefmt=app.config['LOG_DATE_FORMAT']
+    )
+    
+    # Configure application logger
+    app_log_file = os.path.join(log_dir, app.config['APP_LOG'])
+    app_handler = RotatingFileHandler(
+        app_log_file,
+        maxBytes=app.config['LOG_MAX_BYTES'],
+        backupCount=app.config['LOG_BACKUP_COUNT']
+    )
+    app_handler.setFormatter(logging.Formatter(
+        app.config['LOG_FORMAT'],
+        app.config['LOG_DATE_FORMAT']
+    ))
+    app_handler.setLevel(log_level)
+    app.logger.addHandler(app_handler)
+    
+    # Configure access logger if not in testing mode
+    if not app.testing:
+        access_log_file = os.path.join(log_dir, app.config['ACCESS_LOG'])
+        access_handler = RotatingFileHandler(
+            access_log_file,
+            maxBytes=app.config['LOG_MAX_BYTES'],
+            backupCount=app.config['LOG_BACKUP_COUNT']
+        )
+        access_handler.setFormatter(logging.Formatter(
+            app.config['LOG_FORMAT'],
+            app.config['LOG_DATE_FORMAT']
+        ))
+        access_logger = logging.getLogger('werkzeug')
+        access_logger.addHandler(access_handler)
+        
+    # Configure error logger
+    error_log_file = os.path.join(log_dir, app.config['ERROR_LOG'])
+    error_handler = RotatingFileHandler(
+        error_log_file,
+        maxBytes=app.config['LOG_MAX_BYTES'],
+        backupCount=app.config['LOG_BACKUP_COUNT']
+    )
+    error_handler.setFormatter(logging.Formatter(
+        app.config['LOG_FORMAT'],
+        app.config['LOG_DATE_FORMAT']
+    ))
+    error_handler.setLevel(logging.ERROR)
+    app.logger.addHandler(error_handler)
 
 def create_app(config_class=None):
     """Create and configure the Flask application.
@@ -49,6 +115,9 @@ def create_app(config_class=None):
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login'
     login_manager.login_message_category = 'info'
+    
+    # Configure logging
+    configure_logging(app)
     
     # User loader function for Flask-Login
     from app.models.user import User

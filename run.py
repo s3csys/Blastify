@@ -30,4 +30,8 @@ def make_shell_context():
     }
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(
+        host=app.config['FLASK_HOST'],
+        port=app.config['FLASK_PORT'],
+        debug=app.config['DEBUG_MODE']
+    )

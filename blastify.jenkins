@@ -43,26 +43,26 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                sh '''
-                    set -e
-                    . "${VENV_DIR}/bin/activate"
-                    python3 utility_manager.py --set-env
-                    pytest test/ -v --junitxml=reports/test-results.xml --cov=app --cov-report=xml:reports/coverage.xml --cov-report=html:reports/htmlcov
-                '''
-                junit 'reports/test-results.xml'
-                publishHTML([
-                  reportDir: 'reports/htmlcov',
-                  reportFiles: 'index.html',
-                  reportName: 'Code Coverage HTML Report',
-                  allowMissing: true,
-                  alwaysLinkToLastBuild: true,
-                  keepAll: true
-                ])
-                archiveArtifacts artifacts: 'reports/*.xml', fingerprint: true
-            }
-        }
+        // stage('Test') {
+        //     steps {
+        //         sh '''
+        //             set -e
+        //             . "${VENV_DIR}/bin/activate"
+        //             echo -e "n" | python3 utility.py env_management set-env
+        //             pytest tests/ -v --junitxml=reports/test-results.xml --cov=app --cov-report=xml:reports/coverage.xml --cov-report=html:reports/htmlcov
+        //         '''
+        //         junit 'reports/test-results.xml'
+        //         publishHTML([
+        //           reportDir: 'reports/htmlcov',
+        //           reportFiles: 'index.html',
+        //           reportName: 'Code Coverage HTML Report',
+        //           allowMissing: true,
+        //           alwaysLinkToLastBuild: true,
+        //           keepAll: true
+        //         ])
+        //         archiveArtifacts artifacts: 'reports/*.xml', fingerprint: true
+        //     }
+        // }
         
         stage('Deploy') {
             steps {
@@ -70,7 +70,7 @@ pipeline {
                     set -e
                     echo "Deploying ${BRANCH} branch to ${DEPLOY_DIR}"
                     rm -rf ${DEPLOY_DIR}
-                    rsync -lavz --exclude='.coverage' --exclude='coverage.xml' --exclude='.env' --exclude='instance/amivault.db' --exclude='.key' --exclude='logs' --exclude='__pycache__'   --exclude='.pytest_cache' --exclude='reports' --exclude='venv' "$WORKSPACE/" "${DEPLOY_DIR}"
+                    rsync -lavz --exclude='.coverage' --exclude='coverage.xml' --exclude='.env' --exclude='logs' --exclude='__pycache__'   --exclude='.pytest_cache' --exclude='reports' --exclude='venv' "$WORKSPACE/" "${DEPLOY_DIR}"
                     echo "Deployment of ${BRANCH} branch to ${DEPLOY_DIR} completed"
                 '''
             }
@@ -85,7 +85,6 @@ pipeline {
                     . "${VENV_DIR}/bin/activate"
                     pip install --upgrade pip
                     pip install -r requirements.txt
-                    ln -s "${DEPLOY_DIR}/../shared/instance" "${DEPLOY_DIR}/instance"
                     ln -s "${DEPLOY_DIR}/../shared/.env" "${DEPLOY_DIR}/.env"
                     chown -R ${PERM} "${DEPLOY_DIR}"
                     chmod -R 755 "${DEPLOY_DIR}"

@@ -1,12 +1,14 @@
 #!/usr/bin/env python
-"""Blastify utility script for user management and database operations."""
+"""Blastify utility script for user management, database operations, and environment configuration."""
 
 import os
 import sys
 import click
+import shutil
 from datetime import datetime
 from flask.cli import with_appcontext
 from werkzeug.security import generate_password_hash
+from dotenv import load_dotenv, find_dotenv, set_key
 
 from app import create_app, db
 from app.models.user import User
@@ -36,6 +38,7 @@ def show_interactive_menu():
         ("User Management", users),
         ("Database Management", db_utils),
         ("Message Management", messages),
+        ("Environment Management", env_utils),
         ("Exit", None)
     ]
     
@@ -101,6 +104,134 @@ def execute_command(command):
     """Execute the selected command with interactive prompts for arguments."""
     cmd_name = command.name
     
+    # Get all parameters for the command
+    params = [p for p in command.params if p.name != 'help']
+    args = {}
+    
+    # Prompt for each parameter
+    for param in params:
+        # Skip flags that were already provided
+        if param.is_flag and param.default is False:
+            continue
+            
+        # Get the prompt text
+        prompt_text = param.help or param.name.replace('_', ' ').capitalize()
+        
+        # Handle different parameter types
+        if param.is_flag:
+            args[param.name] = click.confirm(prompt_text, default=param.default)
+        elif isinstance(param, click.Choice):
+            args[param.name] = click.prompt(
+                prompt_text, 
+                type=click.Choice(param.choices),
+                default=param.default
+            )
+        else:
+            args[param.name] = click.prompt(prompt_text, default=param.default)
+    
+    # Execute the command with collected arguments
+    ctx = click.Context(command, info_name=command.name)
+    command.invoke(ctx, **args)
+    
+    click.echo("\nCommand executed. Press Enter to continue...")
+    click.getchar()
+
+
+@click.group(name="env_management")
+def env_utils():
+    """Environment configuration utilities."""
+    pass
+
+
+@env_utils.command()
+@click.option('--force', is_flag=True, help='Overwrite existing .env file if it exists')
+def set_env(force):
+    """Create a .env file from .env.example template."""
+    # Get the current directory
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    env_example_path = os.path.join(current_dir, '.env.example')
+    env_path = os.path.join(current_dir, '.env')
+    
+    # Check if .env.example exists
+    if not os.path.exists(env_example_path):
+        click.echo(click.style("Error: .env.example file not found.", fg='red'))
+        return
+    
+    # Check if .env already exists
+    if os.path.exists(env_path) and not force:
+        overwrite = click.confirm(
+            ".env file already exists. Do you want to overwrite it?", 
+            default=False
+        )
+        if not overwrite:
+            click.echo("Operation cancelled.")
+            return
+    
+    # Copy .env.example to .env
+    try:
+        shutil.copy2(env_example_path, env_path)
+        click.echo(click.style(".env file created successfully from .env.example", fg='green'))
+        
+        # # Ask if user wants to customize values
+        # customize = click.confirm("Do you want to customize environment variables?", default=True)
+        # if customize:
+        #     customize_env_variables(env_path)
+        
+        # Reload environment variables
+        load_dotenv(env_path, override=True)
+        click.echo(click.style("Environment variables loaded successfully.", fg='green'))
+        
+    except Exception as e:
+        click.echo(click.style(f"Error creating .env file: {str(e)}", fg='red'))
+
+
+def customize_env_variables(env_path):
+    """Interactive customization of environment variables."""
+    click.echo("\nCustomizing environment variables:")
+    click.echo("Press Enter to keep the current value, or enter a new value.")
+    click.echo("-" * 60)
+    
+    # Load current values
+    load_dotenv(env_path)
+    
+    # Read the .env file to maintain order and comments
+    with open(env_path, 'r') as f:
+        lines = f.readlines()
+    
+    # Process each line
+    for i, line in enumerate(lines):
+        line = line.strip()
+        
+        # Skip empty lines and comments
+        if not line or line.startswith('#'):
+            continue
+        
+        # Parse variable name and value
+        if '=' in line:
+            var_name, current_value = line.split('=', 1)
+            var_name = var_name.strip()
+            current_value = current_value.strip()
+            
+            # Get environment value (might be different from file)
+            env_value = os.environ.get(var_name, current_value)
+            
+            # Ask for new value
+            new_value = click.prompt(
+                f"{var_name}", 
+                default=env_value,
+                show_default=True
+            )
+            
+            # Update the value if changed
+            if new_value != env_value:
+                set_key(env_path, var_name, new_value)
+                click.echo(f"Updated {var_name}")
+    
+    click.echo("-" * 60)
+    click.echo("Environment variables customization completed.")
+    """Execute the selected command with interactive prompts for arguments."""
+    cmd_name = command.name
+    
     # Get required parameters
     params = {}
     for param in command.params:
@@ -134,6 +265,8 @@ def cli(ctx):
     else:
         # Only show banner when executing commands directly
         print_banner()
+
+# Command groups are added at the end of the file
 
 # User management commands
 @cli.group()
@@ -381,6 +514,12 @@ def list_messages(status, platform, limit):
                 click.echo(f"{msg.id:<5} {msg.platform:<10} {msg.recipient:<15} {msg.status:<10} {created:<20} {message_preview:<40}")
     except Exception as e:
         click.echo(f"Error listing messages: {str(e)}")
+
+# Add command groups to CLI
+cli.add_command(users)
+cli.add_command(db_utils)
+cli.add_command(messages)
+cli.add_command(env_utils)
 
 if __name__ == '__main__':
     cli()
