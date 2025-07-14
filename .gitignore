@@ -38,5 +38,5 @@ Thumbs.db
 
 # Application data
 whatsapp_session/
-app_data/
+app_data/chromedriver/*.exe
 webdriver_cache/
