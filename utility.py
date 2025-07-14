@@ -13,7 +13,6 @@ from dotenv import load_dotenv, find_dotenv, set_key
 from app import create_app, db
 from app.models.user import User
 from app.models.message import Message
-from app.models.api_credential import ApiCredential
 
 app = create_app()
 
