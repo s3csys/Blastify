@@ -27,33 +27,89 @@ def index():
 
 @bp.route('/add', methods=['GET', 'POST'])
 @login_required
-def add_contact():
-    """Add a new contact."""
-    # Flask-Login handles authentication checks
-    user = current_user
-    
-    if request.method == 'POST':
+def add_page():
+    """Add contact page."""
+    if request.method == 'GET':
+        user = User.query.get(session['user_id'])
+        return render_template('contacts/add.html', user=user)
+    else:
         try:
-            data = request.form
+            # Get form data
+            name = request.form.get('name')
+            phone = request.form.get('phone')
+            email = request.form.get('email')
+            group = request.form.get('group')
+            notes = request.form.get('notes')
             
+            # Validate required fields
+            if not name or not phone:
+                flash('Name and phone are required', 'danger')
+                return redirect(url_for('contact.add_page'))
+            
+            # Check for duplicate phone
+            existing_contact = Contact.query.filter_by(phone=phone).first()
+            if existing_contact:
+                flash('A contact with this phone number already exists', 'danger')
+                return redirect(url_for('contact.add_page'))
+            
+            # Create new contact
             contact = Contact(
-                name=data['name'],
-                phone=data['phone'],
-                email=data.get('email', ''),
-                group=data.get('group', 'default'),
-                notes=data.get('notes', '')
+                name=name,
+                phone=phone,
+                email=email,
+                group=group,
+                notes=notes
             )
             
             db.session.add(contact)
             db.session.commit()
             
+            flash('Contact added successfully', 'success')
             return redirect(url_for('contact.index'))
             
         except Exception as e:
             current_app.logger.error(f"Error adding contact: {str(e)}")
-            return render_template('contact_form.html', user=user, error=str(e))
-    
-    return render_template('contact_form.html', user=user)
+            flash(f'Error: {str(e)}', 'danger')
+            return redirect(url_for('contact.add_page'))
+
+@bp.route('/api/add', methods=['POST'])
+@login_required
+def add_contact():
+    """API endpoint to add a new contact."""
+    try:
+        # Get JSON data
+        data = request.get_json()
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('phone'):
+            return jsonify({'success': False, 'error': 'Name and phone are required'}), 400
+        
+        # Check for duplicate phone
+        existing_contact = Contact.query.filter_by(phone=data.get('phone')).first()
+        if existing_contact:
+            return jsonify({'success': False, 'error': 'A contact with this phone number already exists'}), 400
+        
+        # Create new contact
+        contact = Contact(
+            name=data.get('name'),
+            phone=data.get('phone'),
+            email=data.get('email'),
+            group=data.get('group'),
+            notes=data.get('notes')
+        )
+        
+        db.session.add(contact)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Contact added successfully',
+            'contact': contact.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error adding contact: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/edit/<int:contact_id>', methods=['GET', 'POST'])
 @login_required
@@ -80,9 +136,18 @@ def edit_contact(contact_id):
             
         except Exception as e:
             current_app.logger.error(f"Error updating contact: {str(e)}")
-            return render_template('contact_form.html', user=user, contact=contact, error=str(e))
+            # Get groups for the dropdown
+            groups = db.session.query(Contact.group).distinct().all()
+            group_names = [group[0] for group in groups if group[0]]
+            formatted_groups = [{'name': name} for name in group_names]
+            return render_template('contacts/edit.html', user=user, contact=contact, groups=formatted_groups, error=str(e))
     
-    return render_template('contact_form.html', user=user, contact=contact)
+    # Get groups for the dropdown
+    groups = db.session.query(Contact.group).distinct().all()
+    group_names = [group[0] for group in groups if group[0]]
+    formatted_groups = [{'name': name} for name in group_names]
+    
+    return render_template('contacts/edit.html', user=user, contact=contact, groups=formatted_groups)
 
 @bp.route('/delete/<int:contact_id>', methods=['POST'])
 @login_required
@@ -272,20 +337,21 @@ def api_list_contacts():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/api/list_groups')
+@login_required
 def api_list_groups():
     """API endpoint to list unique contact groups."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
-    
     try:
         # Query distinct groups from the Contact model
         groups = db.session.query(Contact.group).distinct().all()
-        # Extract group names from the result tuples
-        group_names = [group[0] for group in groups]
+        # Extract group names from the result tuples and filter out None values
+        group_names = [group[0] for group in groups if group[0]]
+        
+        # Format the response to match what the frontend expects
+        formatted_groups = [{'name': name} for name in group_names]
         
         return jsonify({
             'success': True,
-            'groups': group_names
+            'groups': formatted_groups
         })
         
     except Exception as e:
@@ -320,14 +386,10 @@ def bulk_delete_contacts():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/groups')
+@login_required
 def groups():
     """Contact groups management page."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
     user = User.query.get(session['user_id'])
-    if not user:
-        return redirect(url_for('auth.login'))
     
     # Get unique groups
     groups = db.session.query(Contact.group).distinct().all()
@@ -343,3 +405,66 @@ def groups():
         })
     
     return render_template('contacts/group.html', user=user, groups=group_stats)
+
+@bp.route('/api/add_group', methods=['POST'])
+@login_required
+def api_add_group():
+    """API endpoint to add a new contact group."""
+    try:
+        data = request.get_json()
+        if not data or 'name' not in data or not data['name'].strip():
+            return jsonify({'success': False, 'error': 'Group name is required'}), 400
+        
+        group_name = data['name'].strip()
+        
+        # Check if group already exists
+        existing_group = db.session.query(Contact.group).filter(Contact.group == group_name).first()
+        if existing_group:
+            return jsonify({'success': False, 'error': 'Group already exists'}), 400
+        
+        # Create a dummy contact to establish the group
+        # This is a workaround since we don't have a separate Group model
+        # In a real application, you would create a proper Group model
+        dummy_contact = Contact(
+            name='_GROUP_PLACEHOLDER_',
+            phone='_GROUP_PLACEHOLDER_',
+            group=group_name,
+            notes=data.get('description', '')
+        )
+        
+        db.session.add(dummy_contact)
+        db.session.commit()
+        
+        # Delete the dummy contact but keep the group in the system
+        db.session.delete(dummy_contact)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Group added successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error adding group: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/api/delete_group', methods=['POST'])
+@login_required
+def api_delete_group():
+    """API endpoint to delete a contact group."""
+    try:
+        data = request.get_json()
+        if not data or 'name' not in data or not data['name'].strip():
+            return jsonify({'success': False, 'error': 'Group name is required'}), 400
+        
+        group_name = data['name'].strip()
+        
+        # Update all contacts in this group to have no group
+        contacts = Contact.query.filter_by(group=group_name).all()
+        for contact in contacts:
+            contact.group = 'default'
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Group deleted successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting group: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500

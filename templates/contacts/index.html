@@ -20,9 +20,9 @@
             <a href="{{ url_for('contact.groups') }}" class="btn btn-secondary me-2">
                 <i class="align-middle" data-feather="users"></i> Groups
             </a>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addContactModal">
+            <a href="{{ url_for('contact.add_page') }}" class="btn btn-primary">
                 <i class="align-middle" data-feather="user-plus"></i> Add Contact
-            </button>
+            </a>
         </div>
     </div>
 
@@ -110,53 +110,7 @@
     </div>
 </div>
 
-<!-- Add/Edit Contact Modal -->
-<div class="modal fade theme-modal" id="addContactModal" tabindex="-1" aria-labelledby="addContactModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addContactModalLabel">Add New Contact</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="contactForm">
-                    <input type="hidden" id="contactId" name="id">
-                    <div class="mb-3">
-                        <label for="contactName" class="form-label">Name</label>
-                        <input type="text" class="form-control" id="contactName" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="contactPhone" class="form-label">Phone Number</label>
-                        <div class="input-group">
-                            <span class="input-group-text">+</span>
-                            <input type="tel" class="form-control" id="contactPhone" name="phone" required placeholder="Country code and number">
-                        </div>
-                        <div class="form-text">Include country code without the + sign (e.g., 1234567890)</div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="contactEmail" class="form-label">Email (Optional)</label>
-                        <input type="email" class="form-control" id="contactEmail" name="email">
-                    </div>
-                    <div class="mb-3">
-                        <label for="contactGroup" class="form-label">Group</label>
-                        <select class="form-select" id="contactGroup" name="group">
-                            <option value="default">Default</option>
-                            <!-- Groups will be loaded dynamically -->
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="contactNotes" class="form-label">Notes (Optional)</label>
-                        <textarea class="form-control" id="contactNotes" name="notes" rows="3"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveContactBtn">Save Contact</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Add/Edit Contact Modal removed - now using dedicated pages -->
 
 <!-- Assign Group Modal -->
 <div class="modal fade theme-modal" id="assignGroupModal" tabindex="-1" aria-labelledby="assignGroupModalLabel" aria-hidden="true">
@@ -338,59 +292,7 @@
             loadContacts(null, group);
         });
         
-        // Save contact button handler
-        document.getElementById('saveContactBtn').addEventListener('click', function() {
-            const form = document.getElementById('contactForm');
-            const formData = new FormData(form);
-            
-            // Validate form
-            if (!form.checkValidity()) {
-                form.reportValidity();
-                return;
-            }
-            
-            // Convert FormData to JSON
-            const data = {};
-            formData.forEach((value, key) => {
-                data[key] = value;
-            });
-            
-            // Add + to phone number if not present
-            if (data.phone && !data.phone.startsWith('+')) {
-                data.phone = '+' + data.phone;
-            }
-            
-            // Determine if this is an add or edit operation
-            const isEdit = data.id ? true : false;
-            const url = isEdit ? `/contact/edit/${data.id}` : '/contact/add';
-            
-            // Send request to add/edit contact
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Close modal and reload contacts
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('addContactModal'));
-                    modal.hide();
-                    form.reset();
-                    loadContacts();
-                    
-                    // Show success message
-                    showAlert('success', isEdit ? 'Contact updated successfully!' : 'Contact added successfully!');
-                } else {
-                    showAlert('danger', data.error || 'Failed to save contact.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('danger', 'An error occurred while saving the contact.');
-            });
+        // Save contact button handler removed - now using dedicated pages
         });
         
         // Bulk assign group button handler
@@ -693,12 +595,6 @@
         
         // Add event delegation for contact actions
         document.getElementById('contactsTable').addEventListener('click', function(e) {
-            // Edit contact button
-            if (e.target.closest('.edit-contact-btn')) {
-                const contactId = e.target.closest('.edit-contact-btn').getAttribute('data-contact-id');
-                editContact(contactId);
-            }
-            
             // Delete contact button
             if (e.target.closest('.delete-contact-btn')) {
                 const contactId = e.target.closest('.delete-contact-btn').getAttribute('data-contact-id');
@@ -775,9 +671,9 @@
                             const actionsCell = row.insertCell(6);
                             actionsCell.innerHTML = `
                                 <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-primary edit-contact-btn" data-contact-id="${contact.id}">
+                                    <a href="/contact/edit/${contact.id}" class="btn btn-sm btn-outline-primary">
                                         <i class="align-middle" data-feather="edit"></i>
-                                    </button>
+                                    </a>
                                     <button class="btn btn-sm btn-outline-info send-message-btn" data-contact-id="${contact.id}">
                                         <i class="align-middle" data-feather="message-square"></i>
                                     </button>
@@ -822,14 +718,30 @@
                 if (data.success) {
                     const filterGroup = document.getElementById('filterGroup');
                     const contactGroup = document.getElementById('contactGroup');
+                    const assignGroupSelect = document.getElementById('assignGroupSelect');
+                    const removeGroupSelect = document.getElementById('removeGroupSelect');
                     
                     // Clear existing options except the first one
                     while (filterGroup.options.length > 1) {
                         filterGroup.remove(1);
                     }
                     
-                    while (contactGroup.options.length > 1) {
-                        contactGroup.remove(1);
+                    if (contactGroup) {
+                        while (contactGroup.options.length > 1) {
+                            contactGroup.remove(1);
+                        }
+                    }
+                    
+                    if (assignGroupSelect) {
+                        while (assignGroupSelect.options.length > 1) {
+                            assignGroupSelect.remove(1);
+                        }
+                    }
+                    
+                    if (removeGroupSelect) {
+                        while (removeGroupSelect.options.length > 1) {
+                            removeGroupSelect.remove(1);
+                        }
                     }
                     
                     // Add groups to selects
@@ -841,11 +753,29 @@
                             filterOption.textContent = group.name;
                             filterGroup.appendChild(filterOption);
                             
-                            // Add to contact form select
-                            const contactOption = document.createElement('option');
-                            contactOption.value = group.name;
-                            contactOption.textContent = group.name;
-                            contactGroup.appendChild(contactOption);
+                            // Add to contact form select if it exists
+                            if (contactGroup) {
+                                const contactOption = document.createElement('option');
+                                contactOption.value = group.name;
+                                contactOption.textContent = group.name;
+                                contactGroup.appendChild(contactOption);
+                            }
+                            
+                            // Add to assign group select if it exists
+                            if (assignGroupSelect) {
+                                const assignOption = document.createElement('option');
+                                assignOption.value = group.name;
+                                assignOption.textContent = group.name;
+                                assignGroupSelect.appendChild(assignOption);
+                            }
+                            
+                            // Add to remove group select if it exists
+                            if (removeGroupSelect) {
+                                const removeOption = document.createElement('option');
+                                removeOption.value = group.name;
+                                removeOption.textContent = group.name;
+                                removeGroupSelect.appendChild(removeOption);
+                            }
                         });
                     }
                 }
@@ -911,56 +841,7 @@
             });
         }
         
-        function editContact(contactId) {
-            // Fetch contact details
-            fetch(`/contact/${contactId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const contact = data.contact;
-                    
-                    // Update modal title
-                    document.getElementById('addContactModalLabel').textContent = 'Edit Contact';
-                    
-                    // Populate form fields
-                    document.getElementById('contactId').value = contact.id;
-                    document.getElementById('contactName').value = contact.name;
-                    document.getElementById('contactPhone').value = contact.phone.replace(/^\+/, ''); // Remove + from phone
-                    document.getElementById('contactEmail').value = contact.email || '';
-                    document.getElementById('contactNotes').value = contact.notes || '';
-                    
-                    // Set group if available
-                    const groupSelect = document.getElementById('contactGroup');
-                    if (contact.groups && contact.groups.length > 0) {
-                        // Try to find the group in the select
-                        const groupOption = Array.from(groupSelect.options).find(option => option.value === contact.groups[0]);
-                        
-                        if (groupOption) {
-                            groupSelect.value = contact.groups[0];
-                        } else {
-                            // If group not found in select, add it
-                            const option = document.createElement('option');
-                            option.value = contact.groups[0];
-                            option.textContent = contact.groups[0];
-                            groupSelect.appendChild(option);
-                            groupSelect.value = contact.groups[0];
-                        }
-                    } else {
-                        groupSelect.value = 'default';
-                    }
-                    
-                    // Show modal
-                    const modal = new bootstrap.Modal(document.getElementById('addContactModal'));
-                    modal.show();
-                } else {
-                    showAlert('danger', data.error || 'Failed to load contact details.');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('danger', 'An error occurred while loading contact details.');
-            });
-        }
+        // editContact function removed - now using dedicated edit page
         
         function deleteContact(contactId, contactName) {
             // Update delete confirmation message
@@ -1221,12 +1102,7 @@
             });
         }
         
-        // Reset contact form when modal is hidden
-        document.getElementById('addContactModal').addEventListener('hidden.bs.modal', function() {
-            document.getElementById('contactForm').reset();
-            document.getElementById('contactId').value = '';
-            document.getElementById('addContactModalLabel').textContent = 'Add New Contact';
-        });
+        // Event listener for modal reset removed as we now use dedicated pages for adding/editing contacts
     });
 </script>
 {% endblock %}

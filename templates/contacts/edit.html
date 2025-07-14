@@ -1,0 +1,211 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0" id="contacts-edit-container" style="overflow-y: auto; max-height: calc(100vh - 200px); position: relative; padding-bottom: 100px;">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3"><strong>Edit</strong> Contact</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('contact.index') }}" class="btn btn-secondary">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Contacts
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card theme-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Contact Information</h5>
+                </div>
+                <div class="card-body">
+                    <form id="editContactForm" method="post" action="{{ url_for('contact.edit_contact', contact_id=contact.id) }}">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputName">Name</label>
+                                    <input type="text" class="form-control" id="inputName" name="name" value="{{ contact.name }}" placeholder="Enter full name" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputPhone">Phone Number</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">+</span>
+                                        <input type="tel" class="form-control" id="inputPhone" name="phone" value="{{ contact.phone }}" placeholder="Country code and number" required>
+                                    </div>
+                                    <div class="form-text">Include country code without the + sign (e.g., 1234567890)</div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputEmail">Email (Optional)</label>
+                                    <input type="email" class="form-control" id="inputEmail" name="email" value="{{ contact.email or '' }}" placeholder="email@example.com">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputGroup">Group</label>
+                                    <select class="form-select" id="inputGroup" name="group">
+                                        <option value="default" {% if contact.group == 'default' or not contact.group %}selected{% endif %}>Default</option>
+                                        {% for group in groups %}
+                                            {% if group.name != 'default' %}
+                                                <option value="{{ group.name }}" {% if contact.group == group.name %}selected{% endif %}>{{ group.name }}</option>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="inputNotes">Notes (Optional)</label>
+                                    <textarea class="form-control" id="inputNotes" name="notes" rows="5">{{ contact.notes or '' }}</textarea>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="fixed-button-container text-center">
+                            <button type="submit" class="btn btn-primary btn-lg" style="position: relative; z-index: 100;">Update Contact</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize feather icons
+        feather.replace();
+        
+        // Apply theme adjustments
+        applyThemeAdjustments();
+        
+        // Load groups
+        loadGroups();
+    });
+    
+    function loadGroups() {
+        fetch('/contact/api/list_groups')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const groupSelect = document.getElementById('inputGroup');
+                const currentGroup = groupSelect.value;
+                
+                // Store the currently selected option
+                const selectedOption = Array.from(groupSelect.options).find(option => option.selected);
+                const selectedValue = selectedOption ? selectedOption.value : null;
+                
+                // Clear existing options except the first one (Default)
+                while (groupSelect.options.length > 1) {
+                    groupSelect.remove(1);
+                }
+                
+                // Add groups to select
+                if (data.groups.length > 0) {
+                    data.groups.forEach(group => {
+                        // Skip 'default' as it's already the first option
+                        if (group.name.toLowerCase() !== 'default') {
+                            const option = document.createElement('option');
+                            option.value = group.name;
+                            option.textContent = group.name;
+                            
+                            // If this was the previously selected option, mark it as selected
+                            if (selectedValue && group.name === selectedValue) {
+                                option.selected = true;
+                            }
+                            
+                            groupSelect.appendChild(option);
+                        }
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
+    
+    function applyThemeAdjustments() {
+        // Add theme-card class to all cards
+        document.querySelectorAll('.card').forEach(card => {
+            card.classList.add('theme-card');
+        });
+        
+        // Add theme-modal class to all modals
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.add('theme-modal');
+        });
+    }
+</script>
+
+<style>
+    .fixed-button-container {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        padding: 15px;
+        background-color: rgba(255, 255, 255, 0.9);
+        border-top: 1px solid #dee2e6;
+        margin-top: 20px;
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+    }
+
+    body.theme-dark-enterprise .fixed-button-container {
+        background-color: rgba(40, 48, 70, 0.9);
+    }
+
+    /* Default theme styles */
+    .theme-card {
+        transition: all 0.2s ease-in-out;
+    }
+
+    /* Data Able theme styles */
+    body.theme-data-able .theme-card {
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    body.theme-data-able .btn-primary {
+        border-radius: 5px;
+    }
+
+    /* Teal Minimalist theme styles */
+    body.theme-teal-minimalist .theme-card {
+        border-radius: 4px;
+        border-left: 3px solid var(--primary);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    }
+
+    body.theme-teal-minimalist .btn {
+        text-transform: uppercase;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+
+    /* Dark Enterprise theme styles */
+    body.theme-dark-enterprise .theme-card {
+        background-color: var(--dark);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    body.theme-dark-enterprise .theme-modal .modal-content {
+        background-color: var(--dark);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    body.theme-dark-enterprise .form-control {
+        background-color: var(--input-bg);
+        border-color: var(--input-border-color);
+        color: var(--input-color);
+    }
+
+    body.theme-dark-enterprise .input-group-text {
+        background-color: var(--input-border-color);
+        border-color: var(--input-border-color);
+        color: var(--input-color);
+    }
+</style>
+{% endblock %}
