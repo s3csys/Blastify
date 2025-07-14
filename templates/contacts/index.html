@@ -1209,6 +1209,18 @@
             }, 5000);
         }
         
+        // Apply theme-specific adjustments
+        function applyThemeAdjustments() {
+            // Add theme-specific classes to elements
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.add('theme-card');
+            });
+            
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.classList.add('theme-modal');
+            });
+        }
+        
         // Reset contact form when modal is hidden
         document.getElementById('addContactModal').addEventListener('hidden.bs.modal', function() {
             document.getElementById('contactForm').reset();
