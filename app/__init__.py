@@ -262,6 +262,10 @@ def register_blueprints(app):
     from app.routes.whatsapp_bulk import bp as whatsapp_bulk_bp
     app.register_blueprint(whatsapp_bulk_bp)
     
+    # Selenium Integration Check routes
+    from app.routes.selenium_check import bp as selenium_check_bp
+    app.register_blueprint(selenium_check_bp)
+    
     # Settings routes
     from app.routes.settings import bp as settings_bp
     app.register_blueprint(settings_bp)

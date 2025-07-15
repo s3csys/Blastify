@@ -23,30 +23,66 @@ class WhatsAppAuth:
             Dictionary with session creation status and session ID if successful
         """
         try:
-            # Check if session with this name already exists
-            existing_session = WhatsAppSession.get_session_by_name(session_name)
-            if existing_session:
+            # Add debug logs
+            logger.info(f"Creating new WhatsApp session with name: {session_name}")
+            
+            if not session_name or not session_name.strip():
+                logger.error("No session name provided or empty name")
                 return {
                     "status": "failed",
-                    "error": f"Session with name '{session_name}' already exists"
+                    "error": "Session name cannot be empty"
+                }
+            
+            # Check if session with this name already exists
+            try:
+                existing_session = WhatsAppSession.get_session_by_name(session_name)
+                if existing_session:
+                    logger.info(f"Session with name '{session_name}' already exists")
+                    return {
+                        "status": "failed",
+                        "error": f"Session with name '{session_name}' already exists"
+                    }
+            except Exception as db_error:
+                logger.error(f"Database error while checking for existing session: {str(db_error)}")
+                # Log the full stack trace
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                return {
+                    "status": "failed",
+                    "error": f"Database error: {str(db_error)}"
                 }
             
             # Create a new client (which will create a session)
-            client = WhatsAppClient(session_name=session_name)
-            
-            # Return session info
-            return {
-                "status": "success",
-                "message": "Session created successfully",
-                "session_id": client.session_id,
-                "session_name": session_name
-            }
+            try:
+                logger.info(f"Creating new WhatsAppClient with session name: {session_name}")
+                client = WhatsAppClient(session_name=session_name)
+                logger.info(f"Successfully created WhatsAppClient with session ID: {client.session_id}")
+                
+                # Return session info
+                return {
+                    "status": "success",
+                    "message": "Session created successfully",
+                    "session_id": client.session_id,
+                    "session_name": session_name
+                }
+            except Exception as client_error:
+                logger.error(f"Error creating WhatsAppClient: {str(client_error)}")
+                # Log the full stack trace
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                return {
+                    "status": "failed",
+                    "error": f"Client creation error: {str(client_error)}"
+                }
             
         except Exception as e:
-            logger.error(f"Error creating session: {str(e)}")
+            logger.error(f"Unexpected error creating session: {str(e)}")
+            # Log the full stack trace
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
             return {
                 "status": "failed",
-                "error": str(e)
+                "error": f"Unexpected error: {str(e)}"
             }
     
     @staticmethod
@@ -61,19 +97,71 @@ class WhatsAppAuth:
             Dictionary with connection status and QR code if available
         """
         try:
+            # Add debug logs
+            logger.info(f"Connecting session with ID: {session_id}, headless mode: {headless}")
+            
+            if not session_id:
+                logger.error("No session ID provided for connection")
+                return {
+                    "status": "failed",
+                    "error": "No session ID provided"
+                }
+            
+            # Verify session exists before creating client
+            try:
+                session = WhatsAppSession.get_session_by_id(session_id)
+                if not session:
+                    logger.error(f"Session with ID '{session_id}' not found for connection")
+                    return {
+                        "status": "failed",
+                        "error": f"Session with ID '{session_id}' not found"
+                    }
+                logger.info(f"Found session: {session.name} (Status: {session.status})")
+            except Exception as db_error:
+                logger.error(f"Database error while retrieving session for connection: {str(db_error)}")
+                return {
+                    "status": "failed",
+                    "error": f"Database error: {str(db_error)}"
+                }
+            
             # Create client with existing session
-            client = WhatsAppClient(session_id=session_id)
+            try:
+                client = WhatsAppClient(session_id=session_id)
+                logger.info(f"WhatsAppClient created successfully for session: {session_id}")
+            except Exception as client_error:
+                logger.error(f"Error creating WhatsAppClient: {str(client_error)}")
+                # Log the full stack trace
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                return {
+                    "status": "failed",
+                    "error": f"Error creating client: {str(client_error)}"
+                }
             
             # Connect to WhatsApp Web
-            result = client.connect(headless=headless)
-            
-            return result
+            try:
+                logger.info(f"Attempting to connect to WhatsApp Web with session: {session_id}")
+                result = client.connect(headless=headless)
+                logger.info(f"Connection result: {result.get('status')}")
+                return result
+            except Exception as connect_error:
+                logger.error(f"Error in client.connect(): {str(connect_error)}")
+                # Log the full stack trace
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                return {
+                    "status": "failed",
+                    "error": f"Connection error: {str(connect_error)}"
+                }
             
         except Exception as e:
-            logger.error(f"Error connecting session: {str(e)}")
+            logger.error(f"Unexpected error connecting session: {str(e)}")
+            # Log the full stack trace
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
             return {
                 "status": "failed",
-                "error": str(e)
+                "error": f"Unexpected error: {str(e)}"
             }
     
     @staticmethod
@@ -87,16 +175,40 @@ class WhatsAppAuth:
             Dictionary with QR code data or error
         """
         try:
-            # Get session from database
-            session = WhatsAppSession.get_session_by_id(session_id)
-            if not session:
+            # Add debug logs
+            logger.info(f"Getting QR code for session ID: {session_id}")
+            
+            if not session_id:
+                logger.error("No session ID provided")
                 return {
                     "status": "failed",
-                    "error": f"Session with ID '{session_id}' not found"
+                    "error": "No session ID provided"
                 }
+            
+            # Get session from database
+            try:
+                session = WhatsAppSession.get_session_by_id(session_id)
+                if not session:
+                    logger.error(f"Session with ID '{session_id}' not found")
+                    return {
+                        "status": "failed",
+                        "error": f"Session with ID '{session_id}' not found"
+                    }
+            except Exception as db_error:
+                logger.error(f"Database error while retrieving session: {str(db_error)}")
+                # Log the full stack trace
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                return {
+                    "status": "failed",
+                    "error": f"Database error: {str(db_error)}"
+                }
+            
+            logger.info(f"Found session: {session.name} (Status: {session.status})")
             
             # If session already has a QR code, return it
             if session.qr_code:
+                logger.info(f"Session already has QR code, returning existing QR")
                 return {
                     "status": "success",
                     "qr_code": session.qr_code
@@ -104,16 +216,25 @@ class WhatsAppAuth:
             
             # If session is already connected, return error
             if session.status == "connected":
+                logger.error(f"Session is already connected, cannot generate QR code")
                 return {
                     "status": "failed",
                     "error": "Session is already connected"
                 }
             
             # Connect to get a new QR code
-            return WhatsAppAuth.connect_session(session_id)
+            logger.info(f"Connecting to WhatsApp to generate new QR code for session: {session_id}")
+            result = WhatsAppAuth.connect_session(session_id)
+            logger.info(f"Connection result status: {result.get('status')}")
+            if result.get('status') != 'success':
+                logger.error(f"Failed to connect: {result.get('error', 'Unknown error')}")
+            return result
             
         except Exception as e:
             logger.error(f"Error getting session QR code: {str(e)}")
+            # Log the full stack trace
+            import traceback
+            logger.error(f"Stack trace: {traceback.format_exc()}")
             return {
                 "status": "failed",
                 "error": str(e)

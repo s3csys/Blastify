@@ -1,8 +1,10 @@
 import logging
 import uuid
 import json
+import base64
+import io
 from datetime import datetime
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, send_file, Response
 from flask_login import login_required, current_user
 from app.models.whatsapp_session import WhatsAppSession
 from app.models.settings import Settings
@@ -212,12 +214,189 @@ def generate_qr_code():
             'success': False,
             'error': str(e)
         })
+
+@bp.route('/download-qr-code/<session_id>', methods=['GET'])
+@login_required
+def download_qr_code(session_id):
+    """Download the QR code for a WhatsApp session as a PNG image.
+    
+    Args:
+        session_id: The ID of the WhatsApp session
+        
+    Returns:
+        PNG image file for download
+    """
+    try:
+        # Get the session
+        session = WhatsAppSession.get_session_by_id(session_id)
+        
+        if not session:
+            flash('Session not found', 'danger')
+            return redirect(url_for('whatsapp_web.index'))
+        
+        # Check if the session belongs to the current user
+        if session.user_id != current_user.id:
+            flash('Unauthorized access', 'danger')
+            return redirect(url_for('whatsapp_web.index'))
+        
+        # Check if the session has a QR code
+        if not session.qr_code:
+            flash('No QR code available for this session', 'warning')
+            return redirect(url_for('whatsapp_web.generate_qr_page'))
+        
+        # Extract the base64 data from the data URL
+        if session.qr_code.startswith('data:image/png;base64,'):
+            qr_base64 = session.qr_code.replace('data:image/png;base64,', '')
+            qr_data = base64.b64decode(qr_base64)
+            
+            # Create a file-like object from the decoded data
+            qr_file = io.BytesIO(qr_data)
+            qr_file.seek(0)
+            
+            # Return the file for download
+            return send_file(
+                qr_file,
+                mimetype='image/png',
+                as_attachment=True,
+                download_name=f'whatsapp-qr-{session.name}.png'
+            )
+        else:
+            flash('Invalid QR code format', 'danger')
+            return redirect(url_for('whatsapp_web.generate_qr_page'))
+            
     except Exception as e:
-        logging.error(f"Error generating QR code: {str(e)}")
+        logging.error(f"Error downloading QR code: {str(e)}")
+        flash(f'Error downloading QR code: {str(e)}', 'danger')
+        return redirect(url_for('whatsapp_web.generate_qr_page'))
+
+@bp.route('/display-qr-code/<session_id>', methods=['GET'])
+@login_required
+def display_qr_code(session_id):
+    """Display the QR code for a WhatsApp session directly in the browser.
+    
+    Args:
+        session_id: The ID of the WhatsApp session
+        
+    Returns:
+        PNG image for display in browser
+    """
+    try:
+        # Get the session
+        session = WhatsAppSession.get_session_by_id(session_id)
+        
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Check if the session belongs to the current user
+        if session.user_id != current_user.id:
+            return jsonify({'error': 'Unauthorized access'}), 403
+        
+        # Check if the session has a QR code
+        if not session.qr_code:
+            return jsonify({'error': 'No QR code available'}), 404
+        
+        # Extract the base64 data from the data URL
+        if session.qr_code.startswith('data:image/png;base64,'):
+            qr_base64 = session.qr_code.replace('data:image/png;base64,', '')
+            qr_data = base64.b64decode(qr_base64)
+            
+            # Create a file-like object from the decoded data
+            qr_file = io.BytesIO(qr_data)
+            qr_file.seek(0)
+            
+            # Return the file for display in browser
+            return send_file(
+                qr_file,
+                mimetype='image/png',
+                as_attachment=False
+            )
+        else:
+            return jsonify({'error': 'Invalid QR code format'}), 400
+            
+    except Exception as e:
+        logging.error(f"Error displaying QR code: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@bp.route('/check-session-status', methods=['GET'])
+@login_required
+def check_session_status():
+    """Check the connection status of a WhatsApp session using query parameters.
+    
+    Returns:
+        JSON response with connection status
+    """
+    try:
+        session_id = request.args.get('session_id')
+        
+        if not session_id:
+            return jsonify({
+                'status': 'error',
+                'message': 'Session ID is required'
+            })
+        
+        # Get the session status using WhatsAppAuth
+        from app.services.whatsapp.auth import WhatsAppAuth
+        
+        status_result = WhatsAppAuth.get_session_status(session_id)
+        
+        return jsonify(status_result)
+    except Exception as e:
+        logging.error(f"Error checking connection status: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@bp.route('/refresh-qr-code/<session_id>', methods=['POST'])
+@login_required
+def refresh_qr_code(session_id):
+    """Refresh the QR code for a WhatsApp session.
+    
+    Args:
+        session_id: The ID of the WhatsApp session
+        
+    Returns:
+        JSON response with new QR code data
+    """
+    try:
+        # Get the session
+        session = WhatsAppSession.get_session_by_id(session_id)
+        
+        if not session:
+            return jsonify({
+                'success': False,
+                'error': 'Session not found'
+            }), 404
+        
+        # Check if the session belongs to the current user
+        if session.user_id != current_user.id:
+            return jsonify({
+                'success': False,
+                'error': 'Unauthorized access'
+            }), 403
+        
+        # Refresh the QR code using WhatsAppAuth
+        from app.services.whatsapp.auth import WhatsAppAuth
+        
+        refresh_result = WhatsAppAuth.refresh_qr_code(session_id)
+        
+        if refresh_result.get('status') != 'success':
+            return jsonify({
+                'success': False,
+                'error': refresh_result.get('error', 'Failed to refresh QR code')
+            }), 400
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'qr_code': refresh_result.get('qr_code')
+        })
+    except Exception as e:
+        logging.error(f"Error refreshing QR code: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
-        })
+        }), 500
 
 @bp.route('/update_settings', methods=['POST'])
 @login_required

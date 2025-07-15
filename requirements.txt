@@ -47,6 +47,10 @@ python-socketio==5.8.0
 # For QR code scanning and session management
 base64io==1.0.3
 cryptography==40.0.2
+# zxing-cpp==1.4.0
+zxing-cpp==2.3.0
+opencv-python==4.8.0.74
+numpy==1.26.4
 
 # For browser automation (headless mode)
 selenium==4.10.0

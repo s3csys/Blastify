@@ -8,6 +8,9 @@
         </div>
 
         <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('selenium_check.index') }}" class="btn btn-warning">
+                <i class="align-middle" data-feather="check-circle"></i> Check Selenium
+            </a>
             <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-light">
                 <i class="align-middle" data-feather="arrow-left"></i> Back to WhatsApp
             </a>
@@ -31,7 +34,7 @@
                                 </div>
                                 
                                 <div class="d-grid gap-2">
-                                    <button type="button" id="generateQrButton" class="btn btn-primary">
+                                    <button type="submit" id="generateQrButton" class="btn btn-primary">
                                         <i class="align-middle" data-feather="qr-code"></i> Generate QR Code
                                     </button>
                                 </div>
@@ -44,13 +47,60 @@
                                 </div>
                                 <div class="alert alert-info" role="alert">
                                     <i class="align-middle" data-feather="info"></i>
-                                    Scan this QR code with WhatsApp on your phone to connect.
+                                    <strong>Scan this QR code with WhatsApp on your phone to connect.</strong>
+                                    <ul class="mt-2 mb-0">
+                                        <li>You can scan directly from your screen</li>
+                                        <li>Or download the QR code image and scan it from another device</li>
+                                        <li>The QR code is valid for approximately 2 minutes</li>
+                                    </ul>
+                                </div>
+                                
+                                <div class="card mt-3">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0"><i class="align-middle me-1" data-feather="smartphone"></i> How to Scan</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <ol class="mb-0">
+                                            <li>Open WhatsApp on your phone</li>
+                                            <li>Tap <strong>Menu</strong> <i class="align-middle" data-feather="more-vertical"></i> or <strong>Settings</strong> <i class="align-middle" data-feather="settings"></i></li>
+                                            <li>Tap <strong>Linked Devices</strong></li>
+                                            <li>Tap <strong>Link a Device</strong></li>
+                                            <li>Point your phone camera at this screen to scan the QR code</li>
+                                        </ol>
+                                    </div>
                                 </div>
                                 <div id="connectionStatus" class="mt-3">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="visually-hidden">Loading...</span>
+                                    <div class="alert alert-secondary" role="alert">
+                                        <div class="d-flex align-items-center">
+                                            <i class="align-middle me-2" data-feather="clock"></i>
+                                            <span>Waiting for connection...</span>
+                                        </div>
+                                        <div class="progress mt-2" style="height: 5px;">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                                        </div>
                                     </div>
-                                    <p class="mt-2">Waiting for connection...</p>
+                                </div>
+                                
+                                <div class="accordion mt-3" id="troubleshootingAccordion">
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="troubleshootingHeading">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#troubleshootingCollapse" aria-expanded="false" aria-controls="troubleshootingCollapse">
+                                                <i class="align-middle me-2" data-feather="help-circle"></i> Having trouble scanning?
+                                            </button>
+                                        </h2>
+                                        <div id="troubleshootingCollapse" class="accordion-collapse collapse" aria-labelledby="troubleshootingHeading" data-bs-parent="#troubleshootingAccordion">
+                                            <div class="accordion-body">
+                                                <ul class="mb-0">
+                                                    <li>Make sure your phone camera is clean and can focus properly</li>
+                                                    <li>Try downloading the QR code image and scanning it from another device</li>
+                                                    <li>Adjust your screen brightness to maximum</li>
+                                                    <li>If the QR code expires, click "Generate QR Code" again</li>
+                                                    <li>Make sure your WhatsApp is up to date</li>
+                                                    <li>Try using a different browser if issues persist</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             <div id="initialInstructions">
@@ -100,9 +150,21 @@
         const connectionStatus = document.getElementById('connectionStatus');
         const qrCodeElement = document.getElementById('qrCode');
         const deviceNameInput = document.getElementById('deviceName');
+        const troubleshootingAccordion = document.getElementById('troubleshootingAccordion');
+        
+        // Initialize feather icons in the accordion when it's shown
+        if (troubleshootingAccordion) {
+            troubleshootingAccordion.addEventListener('shown.bs.collapse', function() {
+                feather.replace();
+            });
+        }
         
         // Generate QR code
-        generateQrButton.addEventListener('click', function() {
+        const whatsappQrForm = document.getElementById('whatsappQrForm');
+        
+        whatsappQrForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
             const deviceName = deviceNameInput.value.trim();
             
             if (!deviceName) {
@@ -114,16 +176,22 @@
             generateQrButton.disabled = true;
             generateQrButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Generating...';
             
-            // Send request to generate QR code
-            const formData = new FormData();
-            formData.append('device_name', deviceName);
+            // Send request to generate QR code using the form's action
+            const formData = new FormData(whatsappQrForm);
             
-            fetch('/whatsapp/generate-qr-code', {
+            fetch(whatsappQrForm.action, {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('QR code generation response:', data); // Debug log
+                
                 if (data.success) {
                     // Hide instructions and show QR code
                     initialInstructions.classList.add('d-none');
@@ -133,25 +201,121 @@
                     qrCodeElement.innerHTML = '';
                     
                     // Check if the qr_code is a data URL (starts with 'data:')
-                    if (data.qr_code.startsWith('data:')) {
+                    if (data.qr_code && data.qr_code.startsWith('data:')) {
+                        // Create a container for the QR code with a border
+                        const qrContainer = document.createElement('div');
+                        qrContainer.className = 'qr-code-wrapper';
+                        qrContainer.style.border = '1px solid #ddd';
+                        qrContainer.style.borderRadius = '8px';
+                        qrContainer.style.padding = '10px';
+                        qrContainer.style.backgroundColor = '#fff';
+                        qrContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                        qrContainer.style.position = 'relative';
+                        
                         // It's already an image, display it directly
                         const qrImage = document.createElement('img');
                         qrImage.src = data.qr_code;
                         qrImage.width = 256;
                         qrImage.height = 256;
                         qrImage.alt = 'WhatsApp QR Code';
-                        qrCodeElement.appendChild(qrImage);
-                    } else {
+                        qrImage.style.borderRadius = '4px';
+                        qrImage.id = 'qrCodeImage';
+                        qrContainer.appendChild(qrImage);
+                        
+                        // Add a timer overlay
+                        const timerOverlay = document.createElement('div');
+                        timerOverlay.className = 'qr-timer';
+                        timerOverlay.style.position = 'absolute';
+                        timerOverlay.style.top = '5px';
+                        timerOverlay.style.right = '5px';
+                        timerOverlay.style.backgroundColor = 'rgba(0,0,0,0.6)';
+                        timerOverlay.style.color = 'white';
+                        timerOverlay.style.padding = '4px 8px';
+                        timerOverlay.style.borderRadius = '12px';
+                        timerOverlay.style.fontSize = '12px';
+                        timerOverlay.style.fontWeight = 'bold';
+                        timerOverlay.innerHTML = '2:00';
+                        timerOverlay.id = 'qrTimer';
+                        qrContainer.appendChild(timerOverlay);
+                        
+                        qrCodeElement.appendChild(qrContainer);
+                        
+                        // Add buttons for the QR code
+                        const buttonsContainer = document.createElement('div');
+                        buttonsContainer.className = 'mt-3 d-flex gap-2 justify-content-center';
+                        
+                        // Download button
+                        const downloadBtn = document.createElement('a');
+                        downloadBtn.className = 'btn btn-sm btn-primary';
+                        downloadBtn.innerHTML = '<i class="align-middle" data-feather="download"></i> Download';
+                        downloadBtn.href = `/whatsapp/download-qr-code/${data.session_id}`;
+                        downloadBtn.target = '_blank';
+                        
+                        // Open in new tab button
+                        const openBtn = document.createElement('a');
+                        openBtn.className = 'btn btn-sm btn-secondary';
+                        openBtn.innerHTML = '<i class="align-middle" data-feather="external-link"></i> Open in New Tab';
+                        openBtn.href = `/whatsapp/display-qr-code/${data.session_id}`;
+                        openBtn.target = '_blank';
+                        
+                        // Refresh QR code button
+                        const refreshBtn = document.createElement('button');
+                        refreshBtn.className = 'btn btn-sm btn-outline-info';
+                        refreshBtn.innerHTML = '<i class="align-middle" data-feather="refresh-cw"></i> Refresh QR';
+                        refreshBtn.type = 'button';
+                        refreshBtn.id = 'refreshQrBtn';
+                        refreshBtn.onclick = function() { refreshQrCode(data.session_id); };
+                        
+                        buttonsContainer.appendChild(downloadBtn);
+                        buttonsContainer.appendChild(openBtn);
+                        buttonsContainer.appendChild(refreshBtn);
+                        qrCodeElement.appendChild(buttonsContainer);
+                        
+                        // Replace feather icons
+                        feather.replace();
+                    } else if (data.qr_code) {
                         // It's text, generate QR code from it
                         new QRCode(qrCodeElement, {
                             text: data.qr_code,
                             width: 256,
                             height: 256
                         });
+                    } else {
+                        // No QR code in response
+                        connectionStatus.innerHTML = `
+                            <div class="alert alert-danger" role="alert">
+                                <i class="align-middle" data-feather="alert-circle"></i>
+                                No QR code received from server.
+                            </div>
+                            <div class="d-grid gap-2 mt-3">
+                                <button type="button" class="btn btn-primary" onclick="location.reload()">
+                                    Try Again
+                                </button>
+                            </div>
+                        `;
+                        feather.replace();
+                        resetGenerateButton();
+                        return;
                     }
                     
                     // Start checking connection status
-                    checkConnectionStatus(data.session_id);
+                    if (data.session_id) {
+                        checkConnectionStatus(data.session_id);
+                    } else {
+                        connectionStatus.innerHTML = `
+                            <div class="alert alert-danger" role="alert">
+                                <i class="align-middle" data-feather="alert-circle"></i>
+                                No session ID received from server.
+                            </div>
+                            <div class="d-grid gap-2 mt-3">
+                                <button type="button" class="btn btn-primary" onclick="location.reload()">
+                                    Try Again
+                                </button>
+                            </div>
+                        `;
+                        feather.replace();
+                        resetGenerateButton();
+                    }
                 } else {
                     alert('Error: ' + (data.error || 'Failed to generate QR code'));
                     resetGenerateButton();
@@ -170,35 +334,297 @@
             feather.replace();
         }
         
+        // Function to refresh QR code
+        function refreshQrCode(sessionId) {
+            const refreshBtn = document.getElementById('refreshQrBtn');
+            if (refreshBtn) {
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Refreshing...';
+            }
+            
+            // Show loading animation on QR code
+            const qrContainer = document.querySelector('.qr-code-wrapper');
+            if (qrContainer) {
+                // Remove any existing overlays
+                const existingOverlays = qrContainer.querySelectorAll('.expired-overlay, .success-overlay, .loading-overlay');
+                existingOverlays.forEach(overlay => overlay.remove());
+                
+                // Add loading overlay
+                const loadingOverlay = document.createElement('div');
+                loadingOverlay.className = 'loading-overlay';
+                loadingOverlay.style.position = 'absolute';
+                loadingOverlay.style.top = '0';
+                loadingOverlay.style.left = '0';
+                loadingOverlay.style.width = '100%';
+                loadingOverlay.style.height = '100%';
+                loadingOverlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
+                loadingOverlay.style.display = 'flex';
+                loadingOverlay.style.flexDirection = 'column';
+                loadingOverlay.style.justifyContent = 'center';
+                loadingOverlay.style.alignItems = 'center';
+                loadingOverlay.style.color = 'white';
+                loadingOverlay.style.borderRadius = '8px';
+                loadingOverlay.innerHTML = `
+                    <div class="spinner-border text-light mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div style="font-weight: bold; font-size: 18px;">Refreshing QR Code...</div>
+                `;
+                qrContainer.appendChild(loadingOverlay);
+            }
+            
+            // Send request to refresh the QR code
+            fetch(`/whatsapp/refresh-qr-code/${sessionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok: ' + response.statusText);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('QR code refresh response:', data); // Debug log
+                
+                // Remove loading overlay
+                if (qrContainer) {
+                    const loadingOverlay = qrContainer.querySelector('.loading-overlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.remove();
+                    }
+                }
+                
+                if (data.success) {
+                    // Update the QR code image
+                    const qrImage = document.getElementById('qrCodeImage');
+                    if (qrImage && data.qr_code) {
+                        qrImage.src = data.qr_code;
+                        
+                        // Reset the timer
+                        startQrCodeTimer();
+                        
+                        // Start checking connection status again
+                        checkConnectionStatus(data.session_id);
+                    }
+                } else {
+                    // Show error message
+                    connectionStatus.innerHTML = `
+                        <div class="alert alert-danger" role="alert">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="align-middle me-2" data-feather="alert-circle"></i>
+                                <strong>Error Refreshing QR Code</strong>
+                            </div>
+                            <p>${data.error || 'Failed to refresh QR code'}</p>
+                            <div class="d-grid gap-2 mt-3">
+                                <button type="button" class="btn btn-primary" onclick="location.reload()">
+                                    Try Again
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    feather.replace();
+                }
+                
+                // Reset the refresh button
+                if (refreshBtn) {
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = '<i class="align-middle" data-feather="refresh-cw"></i> Refresh QR';
+                    feather.replace();
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing QR code:', error);
+                
+                // Remove loading overlay
+                if (qrContainer) {
+                    const loadingOverlay = qrContainer.querySelector('.loading-overlay');
+                    if (loadingOverlay) {
+                        loadingOverlay.remove();
+                    }
+                }
+                
+                // Show error message in the connection status area
+                connectionStatus.innerHTML = `
+                    <div class="alert alert-danger" role="alert">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="align-middle me-2" data-feather="alert-circle"></i>
+                            <strong>Network Error</strong>
+                        </div>
+                        <p>An error occurred while refreshing the QR code. Please check your internet connection and try again.</p>
+                        <div class="d-grid gap-2 mt-3">
+                            <button type="button" class="btn btn-primary" onclick="refreshQrCode('${sessionId}')">
+                                <i class="align-middle" data-feather="refresh-cw"></i> Try Again
+                            </button>
+                        </div>
+                    </div>
+                `;
+                feather.replace();
+                
+                // Reset the refresh button
+                if (refreshBtn) {
+                    refreshBtn.disabled = false;
+                    refreshBtn.innerHTML = '<i class="align-middle" data-feather="refresh-cw"></i> Refresh QR';
+                    feather.replace();
+                }
+            });
+        }
+        
+        // Function to start the QR code timer
+        function startQrCodeTimer() {
+            const timerElement = document.getElementById('qrTimer');
+            if (!timerElement) return;
+            
+            // Set initial time (2 minutes)
+            let timeLeft = 120;
+            
+            // Update timer display
+            function updateTimer() {
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Change color when time is running out
+                if (timeLeft <= 30) {
+                    timerElement.style.backgroundColor = 'rgba(220, 53, 69, 0.8)';
+                }
+            }
+            
+            // Clear any existing timer
+            if (window.qrTimerInterval) {
+                clearInterval(window.qrTimerInterval);
+            }
+            
+            // Reset timer appearance
+            timerElement.style.backgroundColor = 'rgba(0,0,0,0.6)';
+            updateTimer();
+            
+            // Start the countdown
+            window.qrTimerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimer();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(window.qrTimerInterval);
+                    
+                    // Add expired overlay to QR code
+                    const qrContainer = document.querySelector('.qr-code-wrapper');
+                    if (qrContainer) {
+                        const expiredOverlay = document.createElement('div');
+                        expiredOverlay.className = 'expired-overlay';
+                        expiredOverlay.style.position = 'absolute';
+                        expiredOverlay.style.top = '0';
+                        expiredOverlay.style.left = '0';
+                        expiredOverlay.style.width = '100%';
+                        expiredOverlay.style.height = '100%';
+                        expiredOverlay.style.backgroundColor = 'rgba(0,0,0,0.7)';
+                        expiredOverlay.style.display = 'flex';
+                        expiredOverlay.style.flexDirection = 'column';
+                        expiredOverlay.style.justifyContent = 'center';
+                        expiredOverlay.style.alignItems = 'center';
+                        expiredOverlay.style.color = 'white';
+                        expiredOverlay.style.borderRadius = '8px';
+                        expiredOverlay.innerHTML = `
+                            <i data-feather="alert-triangle" style="width: 48px; height: 48px; margin-bottom: 10px;"></i>
+                            <div style="font-weight: bold; font-size: 18px;">QR Code Expired</div>
+                            <button class="btn btn-sm btn-light mt-2" onclick="document.getElementById('refreshQrBtn').click()">
+                                <i data-feather="refresh-cw"></i> Refresh Now
+                            </button>
+                        `;
+                        qrContainer.appendChild(expiredOverlay);
+                        feather.replace();
+                    }
+                }
+            }, 1000);
+        }
+        
         function checkConnectionStatus(sessionId) {
-            const statusCheckInterval = setInterval(() => {
+            console.log('Checking connection status for session:', sessionId); // Debug log
+            
+            // Start the QR code timer when checking connection status
+            startQrCodeTimer();
+            
+            // Clear any existing interval
+            if (window.statusCheckInterval) {
+                clearInterval(window.statusCheckInterval);
+            }
+            
+            window.statusCheckInterval = setInterval(() => {
                 fetch(`/whatsapp/check-connection-status/${sessionId}`)
-                    .then(response => response.json())
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok: ' + response.statusText);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Connection status check response:', data); // Debug log
+                        
                         if (data.connected) {
-                            clearInterval(statusCheckInterval);
+                            clearInterval(window.statusCheckInterval);
+                            if (window.qrTimerInterval) {
+                                clearInterval(window.qrTimerInterval);
+                            }
+                            
                             connectionStatus.innerHTML = `
                                 <div class="alert alert-success" role="alert">
-                                    <i class="align-middle" data-feather="check-circle"></i>
-                                    WhatsApp connected successfully!
-                                </div>
-                                <div class="d-grid gap-2 mt-3">
-                                    <a href="{{ url_for('whatsapp_web.connect') }}" class="btn btn-primary">Connect Device Using This Session</a>
-                                    <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-secondary">Go to WhatsApp Dashboard</a>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="align-middle me-2" data-feather="check-circle"></i>
+                                        <strong>Connected!</strong>
+                                    </div>
+                                    <p>Your WhatsApp device is now connected successfully.</p>
+                                    <div class="d-grid gap-2 mt-3">
+                                        <a href="{{ url_for('whatsapp_web.connect') }}" class="btn btn-primary">Connect Device Using This Session</a>
+                                        <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-secondary">Go to WhatsApp Dashboard</a>
+                                    </div>
                                 </div>
                             `;
                             feather.replace();
+                            
+                            // Add success overlay to QR code
+                            const qrContainer = document.querySelector('.qr-code-wrapper');
+                            if (qrContainer) {
+                                const successOverlay = document.createElement('div');
+                                successOverlay.className = 'success-overlay';
+                                successOverlay.style.position = 'absolute';
+                                successOverlay.style.top = '0';
+                                successOverlay.style.left = '0';
+                                successOverlay.style.width = '100%';
+                                successOverlay.style.height = '100%';
+                                successOverlay.style.backgroundColor = 'rgba(40, 167, 69, 0.8)';
+                                successOverlay.style.display = 'flex';
+                                successOverlay.style.flexDirection = 'column';
+                                successOverlay.style.justifyContent = 'center';
+                                successOverlay.style.alignItems = 'center';
+                                successOverlay.style.color = 'white';
+                                successOverlay.style.borderRadius = '8px';
+                                successOverlay.innerHTML = `
+                                    <i data-feather="check-circle" style="width: 48px; height: 48px; margin-bottom: 10px;"></i>
+                                    <div style="font-weight: bold; font-size: 18px;">Successfully Connected</div>
+                                `;
+                                qrContainer.appendChild(successOverlay);
+                                feather.replace();
+                            }
                         } else if (data.error) {
-                            clearInterval(statusCheckInterval);
+                            clearInterval(window.statusCheckInterval);
+                            if (window.qrTimerInterval) {
+                                clearInterval(window.qrTimerInterval);
+                            }
+                            
                             connectionStatus.innerHTML = `
                                 <div class="alert alert-danger" role="alert">
-                                    <i class="align-middle" data-feather="alert-circle"></i>
-                                    Connection failed: ${data.error}
-                                </div>
-                                <div class="d-grid gap-2 mt-3">
-                                    <button type="button" class="btn btn-primary" onclick="location.reload()">
-                                        Try Again
-                                    </button>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="align-middle me-2" data-feather="alert-circle"></i>
+                                        <strong>Connection Error</strong>
+                                    </div>
+                                    <p>${data.error}</p>
+                                    <div class="d-grid gap-2 mt-3">
+                                        <button type="button" class="btn btn-primary" onclick="document.getElementById('refreshQrBtn').click()">
+                                            Try Again
+                                        </button>
+                                    </div>
                                 </div>
                             `;
                             feather.replace();
@@ -208,25 +634,6 @@
                         console.error('Error checking connection status:', error);
                     });
             }, 3000); // Check every 3 seconds
-            
-            // Stop checking after 2 minutes (120 seconds) if no connection
-            setTimeout(() => {
-                clearInterval(statusCheckInterval);
-                if (!document.querySelector('.alert-success')) {
-                    connectionStatus.innerHTML = `
-                        <div class="alert alert-warning" role="alert">
-                            <i class="align-middle" data-feather="clock"></i>
-                            QR code expired. Please try again.
-                        </div>
-                        <div class="d-grid gap-2 mt-3">
-                            <button type="button" class="btn btn-primary" onclick="location.reload()">
-                                Try Again
-                            </button>
-                        </div>
-                    `;
-                    feather.replace();
-                }
-            }, 120000);
         }
     });
 </script>

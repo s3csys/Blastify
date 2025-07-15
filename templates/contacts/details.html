@@ -486,7 +486,7 @@
         // Confirm delete button handler
         document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
             // Send request to delete contact
-            fetch('/contact/delete/{{ contact.id }}', {
+            fetch('/contacts/delete/{{ contact.id }}', {
                 method: 'POST'
             })
             .then(response => response.json())
@@ -528,7 +528,7 @@
             }
             
             // Send request to edit contact
-            fetch('/contact/edit/{{ contact.id }}', {
+            fetch('/contacts/edit/{{ contact.id }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -565,7 +565,7 @@
             const notes = document.getElementById('editContactNotes').value;
             
             // Send request to update notes
-            fetch('/contact/update_notes/{{ contact.id }}', {
+            fetch('/contacts/update_notes/{{ contact.id }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -607,7 +607,7 @@
             }
             
             // Send request to add contact to group
-            fetch('/contact/add_to_group/{{ contact.id }}', {
+            fetch('/contacts/add_to_group/{{ contact.id }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -644,7 +644,7 @@
                 const group = removeLink.getAttribute('data-group');
                 
                 // Send request to remove contact from group
-                fetch('/contact/remove_from_group/{{ contact.id }}', {
+                fetch('/contacts/remove_from_group/{{ contact.id }}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -790,7 +790,7 @@
         // Functions
         
         function loadGroups() {
-            fetch('/contact/api/list_groups')
+            fetch('/contacts/api/list_groups')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

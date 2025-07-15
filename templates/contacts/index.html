@@ -617,7 +617,7 @@
             document.getElementById('loadingRow').style.display = 'table-row';
             
             // Build URL with search and filter parameters
-            let url = '/contact/api/list?page=' + page;
+            let url = '/contacts/api/list?page=' + page;
             
             if (searchTerm) {
                 url += `&search=${encodeURIComponent(searchTerm)}`;
@@ -712,7 +712,7 @@
         }
         
         function loadGroups() {
-            fetch('/contact/api/list_groups')
+            fetch('/contacts/api/list_groups')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

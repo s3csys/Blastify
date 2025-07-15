@@ -218,7 +218,7 @@ Jane Smith, +9876543210, jane@example.com, Suppliers"></textarea>
             }
             
             // Send request to add contact
-            fetch('/contact/add', {
+            fetch('/contacts/api/add', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -264,7 +264,7 @@ Jane Smith, +9876543210, jane@example.com, Suppliers"></textarea>
             }
             
             // Send request to add multiple contacts
-            fetch('/contact/add_multiple', {
+            fetch('/contacts/api/add_multiple', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -295,7 +295,7 @@ Jane Smith, +9876543210, jane@example.com, Suppliers"></textarea>
         // Functions
         
         function loadGroups() {
-            fetch('/contact/api/list_groups')
+            fetch('/contacts/api/list_groups')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

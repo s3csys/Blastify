@@ -111,6 +111,84 @@ def add_contact():
         current_app.logger.error(f"Error adding contact: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@bp.route('/api/add_multiple', methods=['POST'])
+@login_required
+def add_multiple_contacts():
+    """API endpoint to add multiple contacts at once."""
+    try:
+        # Get JSON data
+        data = request.get_json()
+        
+        if not data or 'contacts' not in data or not isinstance(data['contacts'], list):
+            return jsonify({'success': False, 'error': 'Invalid request format'}), 400
+        
+        contacts = data['contacts']
+        skip_duplicates = data.get('skip_duplicates', False)
+        
+        added_contacts = []
+        skipped_contacts = []
+        failed_contacts = []
+        
+        for contact_data in contacts:
+            try:
+                # Validate required fields
+                if not contact_data.get('name') or not contact_data.get('phone'):
+                    failed_contacts.append({
+                        'data': contact_data,
+                        'error': 'Name and phone are required'
+                    })
+                    continue
+                
+                # Check for duplicate phone
+                existing_contact = Contact.query.filter_by(phone=contact_data.get('phone')).first()
+                if existing_contact:
+                    if skip_duplicates:
+                        skipped_contacts.append({
+                            'data': contact_data,
+                            'error': 'Phone number already exists'
+                        })
+                        continue
+                    else:
+                        failed_contacts.append({
+                            'data': contact_data,
+                            'error': 'Phone number already exists'
+                        })
+                        continue
+                
+                # Create new contact
+                contact = Contact(
+                    name=contact_data.get('name'),
+                    phone=contact_data.get('phone'),
+                    email=contact_data.get('email'),
+                    group=contact_data.get('group'),
+                    notes=contact_data.get('notes')
+                )
+                
+                db.session.add(contact)
+                added_contacts.append(contact.to_dict())
+                
+            except Exception as e:
+                failed_contacts.append({
+                    'data': contact_data,
+                    'error': str(e)
+                })
+        
+        # Commit all successful additions
+        if added_contacts:
+            db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Added {len(added_contacts)} contacts, skipped {len(skipped_contacts)}, failed {len(failed_contacts)}',
+            'added': added_contacts,
+            'skipped': skipped_contacts,
+            'failed': failed_contacts
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error adding multiple contacts: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @bp.route('/edit/<int:contact_id>', methods=['GET', 'POST'])
 @login_required
 def edit_contact(contact_id):

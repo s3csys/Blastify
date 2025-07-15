@@ -786,7 +786,7 @@
             document.getElementById('loadingRow').style.display = 'table-row';
             
             // Build URL with search parameter if provided
-            let url = '/contact/api/list_groups';
+            let url = '/contacts/api/list_groups';
             if (searchTerm) {
                 url += `?search=${encodeURIComponent(searchTerm)}`;
             }
@@ -897,7 +897,7 @@
             document.getElementById('loadingGroupContactsRow').style.display = 'table-row';
             
             // Fetch group contacts
-            fetch(`/contact/groups/${groupId}/contacts`)
+            fetch(`/contacts/groups/${groupId}/contacts`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {

@@ -1,0 +1,269 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3">Selenium Integration Check</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-light">Back to WhatsApp</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Selenium Integration Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>System Information</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Operating System
+                                <span class="badge bg-primary rounded-pill">{{ 'Windows' if os_type == 'nt' else 'Linux/Mac' }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Chrome Version
+                                <span class="badge bg-info rounded-pill">{{ chrome_version }}</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6>ChromeDriver Status</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                ChromeDriver Installed
+                                {% if chromedriver_exists %}
+                                <span class="badge bg-success rounded-pill">Yes</span>
+                                {% else %}
+                                <span class="badge bg-danger rounded-pill">No</span>
+                                {% endif %}
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                ChromeDriver Path
+                                <span class="badge bg-secondary rounded-pill">{{ chromedriver_path }}</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Setup Script Available
+                                {% if setup_script_exists %}
+                                <span class="badge bg-success rounded-pill">Yes</span>
+                                {% else %}
+                                <span class="badge bg-danger rounded-pill">No</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6>Selenium Integration</h6>
+                        <ul class="list-group">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Selenium Working
+                                {% if selenium_working %}
+                                <span class="badge bg-success rounded-pill">Yes</span>
+                                {% else %}
+                                <span class="badge bg-danger rounded-pill">No</span>
+                                {% endif %}
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+                        {% if not chromedriver_exists and setup_script_exists %}
+                        <form action="{{ url_for('selenium_check.install_chromedriver') }}" method="post">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="align-middle" data-feather="download"></i> Install ChromeDriver
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        {% if chromedriver_exists %}
+                        <button id="check-selenium" class="btn btn-info">
+                            <i class="align-middle" data-feather="check-circle"></i> Test Selenium
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Selenium Integration Logs</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="alert alert-info" role="alert">
+                            <h6 class="alert-heading">Troubleshooting Tips</h6>
+                            <p>If you're having issues with Selenium integration, try the following:</p>
+                            <ol>
+                                <li>Make sure Chrome is installed on your system</li>
+                                <li>Check that the ChromeDriver version matches your Chrome version</li>
+                                <li>Ensure you have proper permissions to execute ChromeDriver</li>
+                                <li>Check the logs below for specific error messages</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="alert alert-warning" role="alert">
+                            <h6 class="alert-heading">Known Issues</h6>
+                            <p><strong>AMD VideoProcessor Error:</strong> If you see errors like "AMD VideoProcessorGetOutputExtension failed: Unspecified error (0x80004005)" in the logs, this is a known issue with AMD graphics cards and Chrome. These errors do not affect WhatsApp functionality and can be safely ignored.</p>
+                            <p>Other common errors that don't affect functionality:</p>
+                            <ul>
+                                <li>DevTools listening on ws://127.0.0.1:XXXXX/devtools/browser/XXXXX</li>
+                                <li>Various GPU acceleration warnings</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6>Log Output</h6>
+                        <div class="bg-dark text-white p-3 rounded" style="height: 300px; overflow-y: auto;">
+                            <pre id="selenium-logs">Click "View Logs" to see Selenium integration logs...</pre>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-3">
+                        <button id="view-logs" class="btn btn-secondary">
+                            <i class="align-middle" data-feather="file-text"></i> View Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Test Selenium integration
+        const checkSeleniumBtn = document.getElementById('check-selenium');
+        if (checkSeleniumBtn) {
+            checkSeleniumBtn.addEventListener('click', function() {
+                fetch('{{ url_for("selenium_check.check_selenium") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Check if the message contains information about AMD errors
+                        if (data.message.includes('AMD VideoProcessor')) {
+                            // Show a more detailed message with the warning alert
+                            const alertDiv = document.createElement('div');
+                            alertDiv.className = 'alert alert-warning alert-dismissible fade show';
+                            alertDiv.innerHTML = `
+                                <h6 class="alert-heading">Selenium is working with known issues</h6>
+                                <p>${data.message}</p>
+                                <p>These errors are related to AMD graphics cards and do not affect WhatsApp functionality.</p>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            `;
+                            
+                            // Insert the alert before the first card
+                            const firstCard = document.querySelector('.card');
+                            firstCard.parentNode.insertBefore(alertDiv, firstCard);
+                            
+                            // Also fetch logs to show the details
+                            document.getElementById('view-logs').click();
+                        } else {
+                            // Show a simple success message
+                            const alertDiv = document.createElement('div');
+                            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                            alertDiv.innerHTML = `
+                                <h6 class="alert-heading">Success!</h6>
+                                <p>${data.message}</p>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            `;
+                            
+                            // Insert the alert before the first card
+                            const firstCard = document.querySelector('.card');
+                            firstCard.parentNode.insertBefore(alertDiv, firstCard);
+                        }
+                        
+                        // Reload after 3 seconds to refresh the status
+                        setTimeout(() => {
+                            location.reload();
+                        }, 3000);
+                    } else {
+                        // Show an error message
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                        alertDiv.innerHTML = `
+                            <h6 class="alert-heading">Error!</h6>
+                            <p>${data.message}</p>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        `;
+                        
+                        // Insert the alert before the first card
+                        const firstCard = document.querySelector('.card');
+                        firstCard.parentNode.insertBefore(alertDiv, firstCard);
+                        
+                        // Also fetch logs to show the details
+                        document.getElementById('view-logs').click();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error checking Selenium integration: ' + error);
+                });
+            });
+        }
+
+        // View Selenium logs
+        const viewLogsBtn = document.getElementById('view-logs');
+        if (viewLogsBtn) {
+            viewLogsBtn.addEventListener('click', function() {
+                fetch('{{ url_for("selenium_check.get_logs") }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const logsElement = document.getElementById('selenium-logs');
+                        
+                        // Process the logs to highlight AMD VideoProcessor errors
+                        let logText = data.logs.join('');
+                        
+                        // Check if there are AMD VideoProcessor errors
+                        if (logText.includes('AMD VideoProcessor')) {
+                            // Highlight AMD errors in the log text
+                            logText = logText.replace(/\[.*?ERROR.*?AMD VideoProcessorGetOutputExtension.*?\)/g, 
+                                '<span class="text-warning">$&</span>');
+                            
+                            // Add a small note above the logs
+                            const noteDiv = document.createElement('div');
+                            noteDiv.className = 'alert alert-warning mb-3';
+                            noteDiv.innerHTML = `
+                                <small>AMD VideoProcessor errors detected. These are non-critical and don't affect functionality.</small>
+                            `;
+                            logsElement.parentNode.insertBefore(noteDiv, logsElement);
+                        }
+                        
+                        // Highlight other errors
+                        logText = logText.replace(/\[.*?ERROR.*?\]/g, '<span class="text-danger">$&</span>');
+                        
+                        // Highlight DevTools listening messages
+                        logText = logText.replace(/(DevTools listening on.*)/g, '<span class="text-info">$&</span>');
+                        
+                        // Set the processed log text
+                        logsElement.innerHTML = logText;
+                    } else {
+                        alert('Error getting logs: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error getting logs: ' + error);
+                });
+            });
+        }
+    });
+</script>
+{% endblock %}
