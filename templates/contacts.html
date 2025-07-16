@@ -114,11 +114,20 @@
                             <i class="align-middle" data-feather="trash-2"></i> Delete Selected
                         </button>
                         <div class="dropdown d-inline-block">
-                            <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="bulkActionDropdown" data-bs-toggle="dropdown" aria-expanded="false" disabled>
+                            <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="bulkActionDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                 Bulk Actions
                             </button>
                             <ul class="dropdown-menu" aria-labelledby="bulkActionDropdown">
                                 <li><a class="dropdown-item" href="#" id="bulkExport">Export Selected</a></li>
+                                <li><a class="dropdown-item" href="#" id="bulkAssignGroup">Assign to Group</a></li>
+                                <li><a class="dropdown-item" href="#" id="bulkRemoveFromGroup">Remove from Group</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#" id="bulkSendMessage">Send Message</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><h6 class="dropdown-header">Group Actions</h6></li>
+                                <li><a class="dropdown-item" href="#" id="bulkDeleteByGroup">Delete by Group</a></li>
+                                <li><a class="dropdown-item" href="#" id="bulkExportByGroup">Export by Group</a></li>
+                                <li><a class="dropdown-item" href="#" id="bulkSendMessageByGroup">Message by Group</a></li>
                             </ul>
                         </div>
                     </div>
@@ -211,8 +220,6 @@
 <!-- Edit Contact Modal removed - now using dedicated page -->
 
 <!-- Add Group Modal removed - now using dedicated page at templates/contacts/groups.html -->
-    </div>
-</div>
 
 <!-- Assign to Group Modal removed - now using dedicated page at templates/contacts/groups.html -->
 
@@ -288,6 +295,355 @@
             }
         });
         
+        // Handle bulk export button
+        document.getElementById('bulkExport').addEventListener('click', function() {
+            const selectedContacts = getSelectedContactIds();
+            if (selectedContacts.length > 0) {
+                Swal.fire({
+                    title: 'Export Selected Contacts',
+                    html: `
+                        <p>Select export format for ${selectedContacts.length} contacts:</p>
+                        <div class="btn-group w-100 mt-3">
+                            <button type="button" class="btn btn-primary" id="exportCsvBtn">CSV</button>
+                            <button type="button" class="btn btn-primary" id="exportXmlBtn">XML</button>
+                        </div>
+                    `,
+                    showConfirmButton: false,
+                    showCancelButton: true,
+                    cancelButtonText: 'Cancel',
+                    cancelButtonColor: '#6c757d'
+                });
+                
+                // Add event listeners to the export format buttons
+                document.getElementById('exportCsvBtn').addEventListener('click', function() {
+                    exportSelectedContacts(selectedContacts, 'csv');
+                    Swal.close();
+                });
+                
+                document.getElementById('exportXmlBtn').addEventListener('click', function() {
+                    exportSelectedContacts(selectedContacts, 'xml');
+                    Swal.close();
+                });
+            }
+        });
+        
+        // Handle bulk assign to group button
+        document.getElementById('bulkAssignGroup').addEventListener('click', function() {
+            const selectedContacts = getSelectedContactIds();
+            if (selectedContacts.length > 0) {
+                // Fetch available groups
+                fetch('{{ url_for("contact.api_list_groups") }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Create group options HTML
+                        let groupOptionsHtml = '';
+                        data.groups.forEach(group => {
+                            groupOptionsHtml += `<option value="${group.name}">${group.name}</option>`;
+                        });
+                        
+                        // Show group selection dialog
+                        Swal.fire({
+                            title: 'Assign to Group',
+                            html: `
+                                <p>Select a group to assign ${selectedContacts.length} contacts:</p>
+                                <select class="form-select mb-3" id="groupSelect">
+                                    ${groupOptionsHtml}
+                                </select>
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="createNewGroup">
+                                    <label class="form-check-label" for="createNewGroup">Create new group</label>
+                                </div>
+                                <div id="newGroupNameContainer" style="display: none;">
+                                    <input type="text" class="form-control" id="newGroupName" placeholder="Enter new group name">
+                                </div>
+                            `,
+                            showCancelButton: true,
+                            confirmButtonText: 'Assign',
+                            cancelButtonText: 'Cancel',
+                            confirmButtonColor: '#198754',
+                            cancelButtonColor: '#6c757d',
+                            preConfirm: () => {
+                                const createNew = document.getElementById('createNewGroup').checked;
+                                if (createNew) {
+                                    const newGroupName = document.getElementById('newGroupName').value.trim();
+                                    if (!newGroupName) {
+                                        Swal.showValidationMessage('Please enter a group name');
+                                        return false;
+                                    }
+                                    return { createNew: true, groupName: newGroupName };
+                                } else {
+                                    const groupSelect = document.getElementById('groupSelect');
+                                    return { createNew: false, groupName: groupSelect.value };
+                                }
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                const { createNew, groupName } = result.value;
+                                
+                                // If creating a new group, create it first
+                                if (createNew) {
+                                    fetch('{{ url_for("contact.api_add_group") }}', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ name: groupName })
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            // Now assign contacts to the new group
+                                            assignContactsToGroup(selectedContacts, groupName);
+                                        } else {
+                                            Swal.fire('Error', data.error || 'Failed to create group', 'error');
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error:', error);
+                                        Swal.fire('Error', 'An error occurred while creating the group', 'error');
+                                    });
+                                } else {
+                                    // Assign contacts to existing group
+                                    assignContactsToGroup(selectedContacts, groupName);
+                                }
+                            }
+                        });
+                        
+                        // Toggle new group name input based on checkbox
+                        document.getElementById('createNewGroup').addEventListener('change', function() {
+                            document.getElementById('newGroupNameContainer').style.display = this.checked ? 'block' : 'none';
+                            document.getElementById('groupSelect').disabled = this.checked;
+                        });
+                    } else {
+                        Swal.fire('Error', data.error || 'Failed to load groups', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire('Error', 'An error occurred while loading groups', 'error');
+                });
+            }
+        });
+        
+        // Handle bulk remove from group button
+        document.getElementById('bulkRemoveFromGroup').addEventListener('click', function() {
+            const selectedContacts = getSelectedContactIds();
+            if (selectedContacts.length > 0) {
+                Swal.fire({
+                    title: 'Remove from Group',
+                    text: `Are you sure you want to remove ${selectedContacts.length} contacts from their current groups?`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#dc3545',
+                    cancelButtonColor: '#6c757d',
+                    confirmButtonText: 'Remove',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Assign to 'default' group (effectively removing from current group)
+                        assignContactsToGroup(selectedContacts, 'default');
+                    }
+                });
+            }
+        });
+        
+        // Handle bulk send message button
+        document.getElementById('bulkSendMessage').addEventListener('click', function() {
+            const selectedContacts = getSelectedContactIds();
+            if (selectedContacts.length > 0) {
+                // Get the phone numbers of selected contacts
+                const phoneNumbers = [];
+                document.querySelectorAll('.contact-checkbox:checked').forEach(checkbox => {
+                    const row = checkbox.closest('tr');
+                    const phone = row.cells[2].textContent.trim();
+                    phoneNumbers.push(phone);
+                });
+                
+                // Redirect to compose page with phone numbers
+                const phoneNumbersParam = phoneNumbers.join(',');
+                window.location.href = `{{ url_for('message.compose') }}?to=${encodeURIComponent(phoneNumbersParam)}`;
+            }
+        });
+        
+        // Handle bulk delete by group button
+        document.getElementById('bulkDeleteByGroup').addEventListener('click', function() {
+            // Fetch available groups
+            fetch('{{ url_for("contact.api_list_groups") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Create group options HTML
+                    let groupOptionsHtml = '';
+                    data.groups.forEach(group => {
+                        groupOptionsHtml += `<option value="${group.name}">${group.name} (${group.contact_count} contacts)</option>`;
+                    });
+                    
+                    // Show group selection dialog
+                    Swal.fire({
+                        title: 'Delete Contacts by Group',
+                        html: `
+                            <p>Select a group to delete all contacts from:</p>
+                            <select class="form-select mb-3" id="groupSelectDelete">
+                                ${groupOptionsHtml}
+                            </select>
+                            <div class="alert alert-warning">
+                                <i class="align-middle" data-feather="alert-triangle"></i>
+                                This action will delete ALL contacts in the selected group and cannot be undone.
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Delete',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#dc3545',
+                        cancelButtonColor: '#6c757d',
+                        didOpen: () => {
+                            feather.replace();
+                        },
+                        preConfirm: () => {
+                            const groupSelect = document.getElementById('groupSelectDelete');
+                            return groupSelect.value;
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const groupName = result.value;
+                            deleteContactsByGroup(groupName);
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', 'Failed to load groups', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'An error occurred while loading groups', 'error');
+            });
+        });
+        
+        // Handle bulk export by group button
+        document.getElementById('bulkExportByGroup').addEventListener('click', function() {
+            // Fetch available groups
+            fetch('{{ url_for("contact.api_list_groups") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Create group options HTML
+                    let groupOptionsHtml = '';
+                    data.groups.forEach(group => {
+                        groupOptionsHtml += `<option value="${group.name}">${group.name} (${group.contact_count} contacts)</option>`;
+                    });
+                    
+                    // Show group selection dialog
+                    Swal.fire({
+                        title: 'Export Contacts by Group',
+                        html: `
+                            <p>Select a group to export all contacts from:</p>
+                            <select class="form-select mb-3" id="groupSelectExport">
+                                ${groupOptionsHtml}
+                            </select>
+                            <p>Select export format:</p>
+                            <div class="btn-group w-100">
+                                <input type="radio" class="btn-check" name="exportFormat" id="exportFormatCsv" value="csv" checked>
+                                <label class="btn btn-outline-primary" for="exportFormatCsv">CSV</label>
+                                <input type="radio" class="btn-check" name="exportFormat" id="exportFormatXml" value="xml">
+                                <label class="btn btn-outline-primary" for="exportFormatXml">XML</label>
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Export',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#198754',
+                        cancelButtonColor: '#6c757d',
+                        preConfirm: () => {
+                            const groupSelect = document.getElementById('groupSelectExport');
+                            const format = document.querySelector('input[name="exportFormat"]:checked').value;
+                            return { groupName: groupSelect.value, format: format };
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const { groupName, format } = result.value;
+                            exportContactsByGroup(groupName, format);
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', 'Failed to load groups', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'An error occurred while loading groups', 'error');
+            });
+        });
+        
+        // Handle bulk send message by group button
+        document.getElementById('bulkSendMessageByGroup').addEventListener('click', function() {
+            // Fetch available groups
+            fetch('{{ url_for("contact.api_list_groups") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Create group options HTML
+                    let groupOptionsHtml = '';
+                    data.groups.forEach(group => {
+                        groupOptionsHtml += `<option value="${group.name}">${group.name} (${group.contact_count} contacts)</option>`;
+                    });
+                    
+                    // Show group selection dialog
+                    Swal.fire({
+                        title: 'Send Message to Group',
+                        html: `
+                            <p>Select a group to send message to all contacts:</p>
+                            <select class="form-select mb-3" id="groupSelectMessage">
+                                ${groupOptionsHtml}
+                            </select>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Compose Message',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#198754',
+                        cancelButtonColor: '#6c757d',
+                        preConfirm: () => {
+                            const groupSelect = document.getElementById('groupSelectMessage');
+                            return groupSelect.value;
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            const groupName = result.value;
+                            // Fetch contacts in the group to get their phone numbers
+                            fetch(`{{ url_for('contact.api_list_contacts') }}?group=${encodeURIComponent(groupName)}`)
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success && data.contacts.length > 0) {
+                                    const phoneNumbers = data.contacts
+                                        .filter(contact => contact.phone) // Filter out contacts without phone numbers
+                                        .map(contact => contact.phone);
+                                    
+                                    if (phoneNumbers.length > 0) {
+                                        // Redirect to the message compose page with the phone numbers
+                                        window.location.href = `{{ url_for('message.compose') }}?to=${phoneNumbers.join(',')}`;
+                                    } else {
+                                        Swal.fire('Error', 'No valid phone numbers found for contacts in this group.', 'error');
+                                    }
+                                } else {
+                                    Swal.fire('Info', 'No contacts found in this group.', 'info');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                Swal.fire('Error', 'An error occurred while fetching contacts.', 'error');
+                            });
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', 'Failed to load groups', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'An error occurred while loading groups', 'error');
+            });
+        });
+        
         // Bulk assign group functionality removed - now using dedicated groups page
         
         // Add contact form submission handled on dedicated page
@@ -335,12 +691,30 @@
                     let groupsHtml = '';
                     
                     data.groups.forEach(group => {
-                        // Add to groups list with link to dedicated groups page
+                        // Add to groups list with link to dedicated groups page and action buttons
                         groupsHtml += `
-                        <a href="{{ url_for('contact.groups') }}?group=${group.name}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                            ${group.name}
-                            <span class="badge bg-primary rounded-pill">${group.contact_count}</span>
-                        </a>`;
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{{ url_for('contact.groups') }}?group=${group.name}" class="text-decoration-none text-dark flex-grow-1">
+                                    ${group.name}
+                                    <span class="badge bg-primary rounded-pill ms-2">${group.contact_count}</span>
+                                </a>
+                                <div class="btn-group btn-group-sm">
+                                    <button type="button" class="btn btn-outline-danger" onclick="deleteContactsByGroup('${group.name}')" title="Delete all contacts in this group">
+                                        <i data-feather="trash-2"></i>
+                                    </button>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Export all contacts in this group">
+                                            <i data-feather="download"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li><a class="dropdown-item" href="#" onclick="exportContactsByGroup('${group.name}', 'csv'); return false;">CSV</a></li>
+                                            <li><a class="dropdown-item" href="#" onclick="exportContactsByGroup('${group.name}', 'xml'); return false;">XML</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>`;
                     });
                     
                     // Only update the groups list if it's empty (no server-side rendered groups)
@@ -389,12 +763,6 @@
                     });
                     this.classList.add('active');
                 });
-            });
-        }
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('groupsList').innerHTML = '<div class="alert alert-danger">Error loading groups</div>';
-                document.getElementById('groupsLoading').style.display = 'none';
             });
         }
         
@@ -596,6 +964,147 @@
                 const bsAlert = new bootstrap.Alert(alertContainer);
                 bsAlert.close();
             }, 5000);
+        }
+        
+        function exportSelectedContacts(contactIds, format) {
+            // Create a form to submit the selected contact IDs
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = `{{ url_for('contact.export_selected_contacts') }}`;
+            form.style.display = 'none';
+            
+            // Add contact IDs as hidden inputs
+            const contactIdsInput = document.createElement('input');
+            contactIdsInput.type = 'hidden';
+            contactIdsInput.name = 'contact_ids';
+            contactIdsInput.value = JSON.stringify(contactIds);
+            form.appendChild(contactIdsInput);
+            
+            // Add format as hidden input
+            const formatInput = document.createElement('input');
+            formatInput.type = 'hidden';
+            formatInput.name = 'format';
+            formatInput.value = format;
+            form.appendChild(formatInput);
+            
+            // Add CSRF token if needed
+            const csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (csrfToken) {
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden';
+                csrfInput.name = 'csrf_token';
+                csrfInput.value = csrfToken.getAttribute('content');
+                form.appendChild(csrfInput);
+            }
+            
+            // Submit the form
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+        }
+        
+        function assignContactsToGroup(contactIds, groupName) {
+            fetch('{{ url_for("contact.api_add_contacts_to_group") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    group_name: groupName,
+                    contact_ids: contactIds
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the UI to reflect the changes
+                    contactIds.forEach(id => {
+                        const row = document.querySelector(`tr[data-contact-id="${id}"]`);
+                        if (row) {
+                            const groupCell = row.cells[4];
+                            groupCell.innerHTML = `<span class="badge bg-primary">${groupName}</span>`;
+                        }
+                    });
+                    
+                    // Show success message
+                    Swal.fire({
+                        title: 'Success!',
+                        text: `${contactIds.length} contacts have been assigned to group "${groupName}".`,
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    
+                    // Reload groups to update counts
+                    loadGroups();
+                } else {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: data.error || 'Failed to assign contacts to group.',
+                        icon: 'error'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'An error occurred while assigning contacts to group.',
+                    icon: 'error'
+                });
+            });
+        }
+        
+        function deleteContactsByGroup(groupName) {
+            // Confirm deletion
+            Swal.fire({
+                title: 'Delete Group Contacts',
+                text: `Are you sure you want to delete ALL contacts in the "${groupName}" group? This action cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Delete All',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Fetch contacts in the group
+                    fetch(`{{ url_for('contact.api_list_contacts') }}?group=${encodeURIComponent(groupName)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.contacts.length > 0) {
+                            const contactIds = data.contacts.map(contact => contact.id);
+                            // Delete the contacts
+                            bulkDeleteContacts(contactIds);
+                        } else {
+                            Swal.fire('Info', 'No contacts found in this group.', 'info');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'An error occurred while fetching contacts.', 'error');
+                    });
+                }
+            });
+        }
+        
+        function exportContactsByGroup(groupName, format) {
+            // Fetch contacts in the group
+            fetch(`{{ url_for('contact.api_list_contacts') }}?group=${encodeURIComponent(groupName)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.contacts.length > 0) {
+                    const contactIds = data.contacts.map(contact => contact.id);
+                    // Export the contacts
+                    exportSelectedContacts(contactIds, format);
+                } else {
+                    Swal.fire('Info', 'No contacts found in this group to export.', 'info');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'An error occurred while fetching contacts for export.', 'error');
+            });
         }
     });
 </script>

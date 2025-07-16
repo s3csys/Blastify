@@ -2,6 +2,7 @@
 
 import csv
 import io
+import json
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from flask import Blueprint, request, jsonify, render_template, current_app, session, redirect, url_for
@@ -664,4 +665,88 @@ def api_add_contacts_to_group():
         
     except Exception as e:
         current_app.logger.error(f"Error adding contacts to group: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/export/selected', methods=['POST'])
+@login_required
+def export_selected_contacts():
+    """Export selected contacts to XML or CSV format."""
+    # Flask-Login handles authentication checks
+    
+    try:
+        data = request.form
+        if 'contact_ids' not in data or 'format' not in data:
+            return jsonify({'success': False, 'error': 'Contact IDs and format are required'}), 400
+        
+        contact_ids = json.loads(data['contact_ids'])
+        format_type = data['format']
+        
+        # Get the selected contacts
+        contacts = Contact.query.filter(Contact.id.in_(contact_ids)).order_by(Contact.name).all()
+        
+        if not contacts:
+            return jsonify({'success': False, 'error': 'No contacts found with the provided IDs'}), 404
+        
+        if format_type.lower() == 'xml':
+            # Generate XML
+            root = ET.Element('contacts')
+            
+            for contact in contacts:
+                contact_elem = ET.SubElement(root, 'contact')
+                
+                name_elem = ET.SubElement(contact_elem, 'name')
+                name_elem.text = contact.name
+                
+                phone_elem = ET.SubElement(contact_elem, 'phone')
+                phone_elem.text = contact.phone
+                
+                email_elem = ET.SubElement(contact_elem, 'email')
+                email_elem.text = contact.email or ''
+                
+                group_elem = ET.SubElement(contact_elem, 'group')
+                group_elem.text = contact.group or 'default'
+                
+                notes_elem = ET.SubElement(contact_elem, 'notes')
+                notes_elem.text = contact.notes or ''
+            
+            xml_str = ET.tostring(root, encoding='utf-8')
+            
+            response = current_app.response_class(
+                xml_str,
+                mimetype='application/xml',
+                headers={'Content-Disposition': 'attachment;filename=selected_contacts.xml'}
+            )
+            
+            return response
+            
+        elif format_type.lower() == 'csv':
+            # Generate CSV
+            output = io.StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow(['Name', 'Phone', 'Email', 'Group', 'Notes'])
+            
+            # Write data
+            for contact in contacts:
+                writer.writerow([
+                    contact.name,
+                    contact.phone,
+                    contact.email or '',
+                    contact.group or 'default',
+                    contact.notes or ''
+                ])
+            
+            response = current_app.response_class(
+                output.getvalue(),
+                mimetype='text/csv',
+                headers={'Content-Disposition': 'attachment;filename=selected_contacts.csv'}
+            )
+            
+            return response
+        
+        return jsonify({'success': False, 'error': 'Invalid export format'}), 400
+        
+    except Exception as e:
+        current_app.logger.error(f"Error exporting selected contacts: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
