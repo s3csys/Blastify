@@ -24,7 +24,19 @@ def index():
     per_page = 10
     contacts = Contact.query.order_by(Contact.name).paginate(page=page, per_page=per_page)
     
-    return render_template('contacts.html', user=user, contacts=contacts)
+    # Get groups for sidebar
+    groups_query = db.session.query(Contact.group).distinct().all()
+    group_names = [group[0] for group in groups_query if group[0]]
+    
+    groups = []
+    for name in group_names:
+        count = Contact.query.filter_by(group=name).count()
+        groups.append({
+            'name': name,
+            'count': count
+        })
+    
+    return render_template('contacts.html', user=user, contacts=contacts, groups=groups)
 
 @bp.route('/add', methods=['GET', 'POST'])
 @login_required

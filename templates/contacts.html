@@ -1,5 +1,7 @@
 {% extends "dashboard.html" %}
 
+
+
 {% block content %}
 
 <div class="container-fluid p-0">
@@ -188,6 +190,15 @@
                                 <span class="visually-hidden">Loading...</span>
                             </div>
                         </div>
+                        <!-- Server-side rendered groups as fallback -->
+                        {% if groups %}
+                            {% for group in groups %}
+                                <a href="{{ url_for('contact.groups') }}?group={{ group.name }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    {{ group.name }}
+                                    <span class="badge bg-primary rounded-pill">{{ group.count }}</span>
+                                </a>
+                            {% endfor %}
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -303,25 +314,27 @@
         // Functions
         
         function loadGroups() {
+            // Hide the loading spinner
+            document.getElementById('groupsLoading').style.display = 'none';
+            
+            // Check if we already have server-side rendered groups
+            const existingGroups = document.querySelectorAll('#groupsList .list-group-item');
+            if (existingGroups.length > 0) {
+                // We already have server-side rendered groups, just update the filter dropdown
+                updateGroupFilterDropdown();
+                return;
+            }
+            
+            // If no server-side rendered groups, fetch them from the API
             fetch('{{ url_for("contact.api_list_groups") }}')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Update group filter dropdown
-                    const groupFilterMenu = document.getElementById('groupFilterMenu');
-                    let filterHtml = '<li><a class="dropdown-item active" href="#" data-group="all">All Groups</a></li>';
-                    
                     // Update groups list with links to the dedicated groups page
-                    // Note: Group management has been moved to the dedicated groups.html page
                     const groupsList = document.getElementById('groupsList');
                     let groupsHtml = '';
                     
-                    // Update assign group select in modal - removed
-                    
                     data.groups.forEach(group => {
-                        // Add to filter dropdown
-                        filterHtml += `<li><a class="dropdown-item" href="#" data-group="${group.name}">${group.name}</a></li>`;
-                        
                         // Add to groups list with link to dedicated groups page
                         groupsHtml += `
                         <a href="{{ url_for('contact.groups') }}?group=${group.name}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
@@ -330,33 +343,54 @@
                         </a>`;
                     });
                     
-                    groupFilterMenu.innerHTML = filterHtml;
-                    groupsList.innerHTML = groupsHtml;
-                    document.getElementById('groupsLoading').style.display = 'none';
+                    // Only update the groups list if it's empty (no server-side rendered groups)
+                    if (!existingGroups.length) {
+                        groupsList.innerHTML = groupsHtml;
+                    }
                     
-                    // Assign group select removed - now using dedicated groups page
-                    
-                    // Add event listeners to group filter items
-                    document.querySelectorAll('#groupFilterMenu .dropdown-item').forEach(item => {
-                        item.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            const group = this.getAttribute('data-group');
-                            document.getElementById('groupFilterDropdown').textContent = group === 'all' ? 'All Groups' : group;
-                            filterContactsByGroup(group);
-                            
-                            // Update active state
-                            document.querySelectorAll('#groupFilterMenu .dropdown-item').forEach(i => {
-                                i.classList.remove('active');
-                            });
-                            this.classList.add('active');
-                        });
-                    });
+                    // Update the filter dropdown
+                    updateGroupFilterDropdown();
                 } else {
                     console.error('Error loading groups:', data.error);
                     document.getElementById('groupsList').innerHTML = '<div class="alert alert-danger">Error loading groups</div>';
-                    document.getElementById('groupsLoading').style.display = 'none';
                 }
             })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('groupsList').innerHTML = '<div class="alert alert-danger">Error loading groups</div>';
+                document.getElementById('groupsLoading').style.display = 'none';
+            });
+        }
+        
+        function updateGroupFilterDropdown() {
+            // Get all group names from the groups list
+            const groupItems = document.querySelectorAll('#groupsList .list-group-item');
+            const groupFilterMenu = document.getElementById('groupFilterMenu');
+            let filterHtml = '<li><a class="dropdown-item active" href="#" data-group="all">All Groups</a></li>';
+            
+            groupItems.forEach(item => {
+                const groupName = item.textContent.trim().split('\n')[0].trim();
+                filterHtml += `<li><a class="dropdown-item" href="#" data-group="${groupName}">${groupName}</a></li>`;
+            });
+            
+            groupFilterMenu.innerHTML = filterHtml;
+            
+            // Add event listeners to group filter items
+            document.querySelectorAll('#groupFilterMenu .dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const group = this.getAttribute('data-group');
+                    document.getElementById('groupFilterDropdown').textContent = group === 'all' ? 'All Groups' : group;
+                    filterContactsByGroup(group);
+                    
+                    // Update active state
+                    document.querySelectorAll('#groupFilterMenu .dropdown-item').forEach(i => {
+                        i.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                });
+            });
+        }
             .catch(error => {
                 console.error('Error:', error);
                 document.getElementById('groupsList').innerHTML = '<div class="alert alert-danger">Error loading groups</div>';
