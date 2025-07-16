@@ -392,10 +392,9 @@ def export_contacts(format):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/api/list')
+@login_required
 def api_list_contacts():
     """API endpoint to list contacts."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
     
     try:
         group = request.args.get('group')

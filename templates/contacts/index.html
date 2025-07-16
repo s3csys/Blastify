@@ -244,6 +244,7 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize Feather icons
@@ -326,7 +327,7 @@
             const selectedContacts = getSelectedContacts();
             
             // Send request to assign group
-            fetch('/contact/bulk/assign_group', {
+            fetch('/contacts/bulk/assign_group', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -388,7 +389,7 @@
             const selectedContacts = getSelectedContacts();
             
             // Send request to remove group
-            fetch('/contact/bulk/remove_group', {
+            fetch('/contacts/bulk/remove_group', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -449,7 +450,7 @@
             const selectedContacts = getSelectedContacts();
             
             // Send request to delete contacts
-            fetch('/contact/bulk/delete', {
+            fetch('/contacts/bulk/delete', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -671,7 +672,7 @@
                             const actionsCell = row.insertCell(6);
                             actionsCell.innerHTML = `
                                 <div class="btn-group">
-                                    <a href="/contact/edit/${contact.id}" class="btn btn-sm btn-outline-primary">
+                                    <a href="/contacts/edit/${contact.id}" class="btn btn-sm btn-outline-primary">
                                         <i class="align-middle" data-feather="edit"></i>
                                     </a>
                                     <button class="btn btn-sm btn-outline-info send-message-btn" data-contact-id="${contact.id}">
@@ -786,7 +787,7 @@
         }
         
         function loadGroupsForModal(selectId) {
-            fetch('/contact/api/list_groups')
+            fetch('/contacts/api/list_groups')
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -861,7 +862,7 @@
             // Add new event listener
             newConfirmDeleteBtn.addEventListener('click', function() {
                 // Send request to delete contact
-                fetch(`/contact/delete/${contactId}`, {
+                fetch(`/contacts/delete/${contactId}`, {
                     method: 'POST'
                 })
                 .then(response => response.json())
@@ -1070,24 +1071,22 @@
         }
         
         function showAlert(type, message) {
-            // Create alert element
-            const alertElement = document.createElement('div');
-            alertElement.className = `alert alert-${type} alert-dismissible fade show`;
-            alertElement.setAttribute('role', 'alert');
-            alertElement.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
+            // Map Bootstrap alert types to SweetAlert2 types
+            const sweetAlertType = type === 'danger' ? 'error' : 
+                                  type === 'warning' ? 'warning' : 
+                                  type === 'info' ? 'info' : 'success';
             
-            // Add alert to the top of the page
-            const container = document.querySelector('.container-fluid');
-            container.insertBefore(alertElement, container.firstChild);
-            
-            // Auto-dismiss after 5 seconds
-            setTimeout(() => {
-                const bsAlert = new bootstrap.Alert(alertElement);
-                bsAlert.close();
-            }, 5000);
+            // Show SweetAlert2 notification
+            Swal.fire({
+                title: type.charAt(0).toUpperCase() + type.slice(1),
+                text: message,
+                icon: sweetAlertType,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000,
+                timerProgressBar: true
+            });
         }
         
         // Apply theme-specific adjustments

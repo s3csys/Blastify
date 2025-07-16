@@ -85,7 +85,7 @@
     });
     
     function loadGroups() {
-        fetch('/contact/api/list_groups')
+        fetch('/contacts/api/list_groups')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
