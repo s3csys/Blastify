@@ -15,6 +15,7 @@
 
 	<link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
 	<link href="{{ url_for('static', filename='css/theme-variables.css') }}" rel="stylesheet">
+	<link href="{{ url_for('static', filename='css/pagination-horizontal.css') }}" rel="stylesheet">
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 	
 	<!-- Theme-specific fonts will be loaded dynamically by the theme-switcher.js -->
@@ -382,7 +383,8 @@
 	</div>
 
 	<script src="{{ url_for('static', filename='js/app.js') }}"></script>
-<script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+	<script src="{{ url_for('static', filename='js/pagination-fix.js') }}"></script>
 <script>
 	// Initialize theme system when page loads
 	document.addEventListener('DOMContentLoaded', function() {

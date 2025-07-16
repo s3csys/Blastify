@@ -1,0 +1,47 @@
+/* Horizontal Pagination Styles */
+.pagination {
+    display: flex;
+    flex-direction: row;
+    padding-left: 0;
+    list-style: none;
+    border-radius: 0.25rem;
+}
+
+.pagination .page-item {
+    margin-right: 0.25rem;
+}
+
+.pagination .page-item:last-child {
+    margin-right: 0;
+}
+
+.pagination .page-link {
+    position: relative;
+    display: block;
+    padding: 0.5rem 0.75rem;
+    margin-left: -1px;
+    line-height: 1.25;
+    color: #4099ff;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    z-index: 3;
+    color: #fff;
+    background-color: #4099ff;
+    border-color: #4099ff;
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+    pointer-events: none;
+    cursor: auto;
+    background-color: #fff;
+    border-color: #dee2e6;
+}
+
+/* Ensure the pagination container has proper spacing */
+.card-footer .pagination {
+    margin-bottom: 0;
+}
