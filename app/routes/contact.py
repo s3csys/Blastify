@@ -667,6 +667,27 @@ def api_add_contacts_to_group():
         current_app.logger.error(f"Error adding contacts to group: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@bp.route('/api/get_contacts_by_ids', methods=['POST'])
+@login_required
+def api_get_contacts_by_ids():
+    """API endpoint to get contacts by their IDs."""
+    try:
+        data = request.get_json()
+        if not data or 'contact_ids' not in data or not isinstance(data['contact_ids'], list):
+            return jsonify({'success': False, 'error': 'Contact IDs are required'}), 400
+        
+        contact_ids = data['contact_ids']
+        contacts = Contact.query.filter(Contact.id.in_(contact_ids)).order_by(Contact.name).all()
+        
+        return jsonify({
+            'success': True,
+            'contacts': [contact.to_dict() for contact in contacts]
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting contacts by IDs: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @bp.route('/export/selected', methods=['POST'])
 @login_required
 def export_selected_contacts():

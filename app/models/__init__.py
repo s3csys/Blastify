@@ -10,4 +10,5 @@ from app.models.settings import Settings
 
 # Import WhatsApp models
 from app.models.whatsapp_session import WhatsAppSession, WhatsAppDevice
+from app.models.template_category import MessageTemplateCategory
 from app.models.message_queue import MessageTemplate, MessageQueue, MessageStatus

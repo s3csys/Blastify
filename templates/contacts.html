@@ -26,6 +26,9 @@
                     <li><a class="dropdown-item" href="{{ url_for('contact.export_contacts', format='xml') }}">XML</a></li>
                 </ul>
             </div>
+            <a href="{{ url_for('contact.groups') }}" class="btn btn-light">
+                <i class="align-middle" data-feather="users"></i> Manage Groups
+            </a>
         </div>
     </div>
 
@@ -452,18 +455,56 @@
         document.getElementById('bulkSendMessage').addEventListener('click', function() {
             const selectedContacts = getSelectedContactIds();
             if (selectedContacts.length > 0) {
-                // Get the phone numbers of selected contacts
-                const phoneNumbers = [];
-                document.querySelectorAll('.contact-checkbox:checked').forEach(checkbox => {
-                    const row = checkbox.closest('tr');
-                    const phone = row.cells[2].textContent.trim();
-                    phoneNumbers.push(phone);
-                });
-                
-                // Redirect to compose page with phone numbers
-                const phoneNumbersParam = phoneNumbers.join(',');
-                window.location.href = `{{ url_for('message.compose') }}?to=${encodeURIComponent(phoneNumbersParam)}`;
+                sendMessageToSelectedContacts(selectedContacts);
+            } else {
+                Swal.fire('Info', 'Please select at least one contact.', 'info');
             }
+        });
+        
+        // Handle bulk send message by group button
+        document.getElementById('bulkSendMessageByGroup').addEventListener('click', function() {
+            // Fetch available groups
+            fetch('{{ url_for("contact.api_list_groups") }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Create group options HTML
+                    let groupOptionsHtml = '';
+                    data.groups.forEach(group => {
+                        groupOptionsHtml += `<option value="${group.name}">${group.name} (${group.contact_count || 0} contacts)</option>`;
+                    });
+                    
+                    // Show group selection dialog
+                    Swal.fire({
+                        title: 'Send Message to Group',
+                        html: `
+                            <p>Select a group to send message to:</p>
+                            <select class="form-select mb-3" id="groupSelectMessage">
+                                ${groupOptionsHtml}
+                            </select>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Send',
+                        cancelButtonText: 'Cancel',
+                        confirmButtonColor: '#198754',
+                        cancelButtonColor: '#6c757d',
+                        preConfirm: () => {
+                            const groupSelect = document.getElementById('groupSelectMessage');
+                            return groupSelect.value;
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            sendMessageToGroup(result.value);
+                        }
+                    });
+                } else {
+                    Swal.fire('Error', data.error || 'Failed to load groups', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire('Error', 'An error occurred while loading groups', 'error');
+            });
         });
         
         // Handle bulk delete by group button
@@ -575,74 +616,7 @@
             });
         });
         
-        // Handle bulk send message by group button
-        document.getElementById('bulkSendMessageByGroup').addEventListener('click', function() {
-            // Fetch available groups
-            fetch('{{ url_for("contact.api_list_groups") }}')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Create group options HTML
-                    let groupOptionsHtml = '';
-                    data.groups.forEach(group => {
-                        groupOptionsHtml += `<option value="${group.name}">${group.name} (${group.contact_count} contacts)</option>`;
-                    });
-                    
-                    // Show group selection dialog
-                    Swal.fire({
-                        title: 'Send Message to Group',
-                        html: `
-                            <p>Select a group to send message to all contacts:</p>
-                            <select class="form-select mb-3" id="groupSelectMessage">
-                                ${groupOptionsHtml}
-                            </select>
-                        `,
-                        showCancelButton: true,
-                        confirmButtonText: 'Compose Message',
-                        cancelButtonText: 'Cancel',
-                        confirmButtonColor: '#198754',
-                        cancelButtonColor: '#6c757d',
-                        preConfirm: () => {
-                            const groupSelect = document.getElementById('groupSelectMessage');
-                            return groupSelect.value;
-                        }
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            const groupName = result.value;
-                            // Fetch contacts in the group to get their phone numbers
-                            fetch(`{{ url_for('contact.api_list_contacts') }}?group=${encodeURIComponent(groupName)}`)
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success && data.contacts.length > 0) {
-                                    const phoneNumbers = data.contacts
-                                        .filter(contact => contact.phone) // Filter out contacts without phone numbers
-                                        .map(contact => contact.phone);
-                                    
-                                    if (phoneNumbers.length > 0) {
-                                        // Redirect to the message compose page with the phone numbers
-                                        window.location.href = `{{ url_for('message.compose') }}?to=${phoneNumbers.join(',')}`;
-                                    } else {
-                                        Swal.fire('Error', 'No valid phone numbers found for contacts in this group.', 'error');
-                                    }
-                                } else {
-                                    Swal.fire('Info', 'No contacts found in this group.', 'info');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                Swal.fire('Error', 'An error occurred while fetching contacts.', 'error');
-                            });
-                        }
-                    });
-                } else {
-                    Swal.fire('Error', 'Failed to load groups', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                Swal.fire('Error', 'An error occurred while loading groups', 'error');
-            });
-        });
+        // This section is now handled by the updated bulkSendMessageByGroup event handler above
         
         // Bulk assign group functionality removed - now using dedicated groups page
         
@@ -1107,5 +1081,83 @@
             });
         }
     });
+    // Function to send message to selected contacts
+    function sendMessageToSelectedContacts(contactIds) {
+        // Redirect to compose page with selected contact numbers
+        fetch('{{ url_for("contact.api_get_contacts_by_ids") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ contact_ids: contactIds })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const phoneNumbers = data.contacts.map(contact => contact.phone).join(',');
+                window.location.href = `{{ url_for('message.compose') }}?to=${encodeURIComponent(phoneNumbers)}`;
+            } else {
+                Swal.fire({
+                    title: 'Error!',
+                    text: data.error || 'Failed to fetch contact information.',
+                    icon: 'error'
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: 'An error occurred while fetching contact information.',
+                icon: 'error'
+            });
+        });
+    }
+
+    // Function to send message to contacts in a group
+    function sendMessageToGroup(groupName) {
+        // Fetch contacts in the group
+        fetch(`{{ url_for('contact.api_list_contacts') }}?group=${encodeURIComponent(groupName)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.contacts.length > 0) {
+                const phoneNumbers = data.contacts.map(contact => contact.phone).join(',');
+                window.location.href = `{{ url_for('message.compose') }}?to=${encodeURIComponent(phoneNumbers)}`;
+            } else {
+                Swal.fire('Info', 'No contacts found in this group to message.', 'info');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'An error occurred while fetching contacts for messaging.', 'error');
+        });
+    }
+
+    // Function to load message templates
+    function loadMessageTemplates(selectElement) {
+        fetch('{{ url_for("message.api_list_templates") }}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Clear existing options except the first one
+                while (selectElement.options.length > 1) {
+                    selectElement.remove(1);
+                }
+                
+                // Add templates to select
+                if (data.templates.length > 0) {
+                    data.templates.forEach(template => {
+                        const option = document.createElement('option');
+                        option.value = template.id;
+                        option.textContent = template.name;
+                        selectElement.appendChild(option);
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+    }
 </script>
 {% endblock %}

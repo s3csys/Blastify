@@ -155,6 +155,9 @@ def create_app(config_class=None):
     else:
         app.config.from_object(config_class)
     
+    # Ensure upload folder exists
+    os.makedirs(os.path.join(app.config['UPLOAD_FOLDER'], 'templates'), exist_ok=True)
+    
     # Initialize extensions with app
     db.init_app(app)
     migrate.init_app(app, db)

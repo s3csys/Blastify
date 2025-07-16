@@ -40,3 +40,6 @@ Thumbs.db
 whatsapp_session/
 app_data/chromedriver/*.exe
 webdriver_cache/
+
+# templates
+static/uploads/

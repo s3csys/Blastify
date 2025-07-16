@@ -12,9 +12,13 @@ class MessageTemplate(db.Model):
     name = db.Column(db.String(128), nullable=False)
     content = db.Column(db.Text, nullable=False)
     media_url = db.Column(db.String(512), nullable=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('message_template_categories.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     is_active = db.Column(db.Boolean, default=True)
+    
+    # Relationship with category
+    category = db.relationship('MessageTemplateCategory', back_populates='templates')
     
     def __repr__(self):
         return f'<MessageTemplate {self.name}>'
@@ -26,6 +30,8 @@ class MessageTemplate(db.Model):
             'name': self.name,
             'content': self.content,
             'media_url': self.media_url,
+            'category_id': self.category_id,
+            'category_name': self.category.name if self.category else None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'is_active': self.is_active

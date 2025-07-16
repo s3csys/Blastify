@@ -21,7 +21,7 @@
                     <h5 class="card-title mb-0">Template Details</h5>
                 </div>
                 <div class="card-body">
-                    <form action="{{ url_for('message.templates_store') }}" method="POST" enctype="multipart/form-data" id="templateForm">
+                    <form id="templateForm" action="{{ url_for('message.templates_store') }}" method="POST" enctype="multipart/form-data">
                         <div class="row">
                             <div class="col-md-8">
                                 <div class="mb-3">
@@ -59,6 +59,18 @@
                                         </button>
                                     </div>
                                     <div class="form-text">Supported file types: images, audio, PDF, and video files.</div>
+                                    <div id="mediaPreview" class="mt-2" style="display: none;">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span id="selectedFileName"></span>
+                                                    <button type="button" class="btn btn-sm btn-outline-danger" id="removeMediaBtn">
+                                                        <i class="align-middle" data-feather="trash-2"></i> Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -146,6 +158,61 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Form submission
+        $('#templateForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            // Validate form
+            if (!$('#templateName').val().trim()) {
+                alert('Please enter a template name');
+                return false;
+            }
+            
+            if (!$('#templateContent').val().trim()) {
+                alert('Please enter template content');
+                return false;
+            }
+            
+            // Create FormData object
+            const formData = new FormData(this);
+            
+            // Show loading indicator
+            $('#saveTemplateBtn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...');
+            
+            // Submit form via AJAX
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        // Show success message
+                        alert('Template saved successfully!');
+                        
+                        // Redirect to templates list
+                        window.location.href = "{{ url_for('message.templates') }}";
+                    } else {
+                        // Show error message
+                        alert('Failed to save template: ' + response.message);
+                        
+                        // Re-enable save button
+                        $('#saveTemplateBtn').prop('disabled', false).html('Save Template');
+                    }
+                },
+                error: function(xhr) {
+                    // Show error message
+                    alert('Failed to save template: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Server error'));
+                    
+                    // Re-enable save button
+                    $('#saveTemplateBtn').prop('disabled', false).html('Save Template');
+                }
+            });
+            
+            return false;
+        });
+        
         // Live preview of template content
         $('#templateContent').on('input', function() {
             updatePreview();
@@ -173,6 +240,8 @@
             const file = this.files[0];
             if (file) {
                 $('#mediaFileName').text(file.name);
+                $('#selectedFileName').text(file.name);
+                $('#previewMedia').show();
                 $('#previewMedia').removeClass('d-none');
             } else {
                 $('#mediaFileName').text('No file selected');
@@ -181,9 +250,10 @@
         });
 
         // Clear media button
-        $('#clearMediaBtn').on('click', function() {
+        $('#clearMediaBtn, #removeMediaBtn').on('click', function() {
             $('#templateMedia').val('');
             $('#mediaFileName').text('No file selected');
+            $('#previewMedia').hide();
             $('#previewMedia').addClass('d-none');
         });
 
@@ -192,18 +262,38 @@
             e.preventDefault();
             
             const categoryName = $('#categoryName').val();
+            if (!categoryName.trim()) {
+                alert('Please enter a category name');
+                return;
+            }
             
-            // Here you would normally use AJAX to submit the form
-            // For this example, we'll simulate adding the category
-            const newOption = new Option(categoryName, 'new_category_id');
-            $('#templateCategory').append(newOption);
-            $(newOption).prop('selected', true);
-            
-            // Close the modal
-            $('#addCategoryModal').modal('hide');
-            
-            // Reset the form
-            $('#addCategoryForm')[0].reset();
+            // Submit the form via AJAX
+            $.ajax({
+                url: "{{ url_for('message.templates_store_category') }}",
+                type: 'POST',
+                data: { name: categoryName },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        // Add the new category to the dropdown
+                        $('#templateCategory').append(`<option value="${response.category.id}">${response.category.name}</option>`);
+                        
+                        // Select the new category
+                        $('#templateCategory').val(response.category.id);
+                        
+                        // Close the modal
+                        $('#addCategoryModal').modal('hide');
+                        
+                        // Clear the form
+                        $('#categoryName').val('');
+                    } else {
+                        alert('Failed to add category: ' + response.message);
+                    }
+                },
+                error: function(xhr) {
+                    alert('Failed to add category: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Server error'));
+                }
+            });
         });
 
         // Function to update preview

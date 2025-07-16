@@ -1,9 +1,13 @@
 """Message routes for handling message sending operations."""
 import os
 import json  # Add this import
+import time
+import re
+from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app, session, redirect, url_for, render_template, flash
 from flask_login import login_required, current_user  # Add this import
 from flask import send_from_directory  # Add this import for templates_media route
+from werkzeug.utils import secure_filename
 from app.services.message_service import MessageService, WhatsAppService  # Added WhatsAppService import
 from app.utils.validators import validate_message_request
 from app.models.message import Message
@@ -14,8 +18,9 @@ from app import db
 bp = Blueprint('message', __name__)
 
 @bp.route('/send', methods=['POST'])
+@login_required
 def send_message():
-    """Send a message to a single recipient.
+    """Send a message to a single recipient or multiple recipients, or save as draft.
     
     Returns:
         JSON response with status of the message send operation or redirect to message history
@@ -31,26 +36,42 @@ def send_message():
             
             # Determine recipient based on recipient type
             recipient = None
+            recipients = []
+            is_bulk = False
+            
             if recipient_type == 'individual':
+                # Get selected contact
+                individual_contact = request.form.get('individual_contacts')
+                if individual_contact:
+                    recipient = individual_contact
+                    recipients = [individual_contact]
+            elif recipient_type == 'multiple':
                 # Get selected contacts
-                individual_contacts = request.form.getlist('individual_contacts[]')
-                if individual_contacts:
-                    # For simplicity, use the first contact
-                    recipient = individual_contacts[0]  # In a real app, you'd handle multiple recipients
+                multiple_contacts = request.form.getlist('multiple_contacts[]')
+                if multiple_contacts:
+                    is_bulk = True
+                    recipients = multiple_contacts
+                    # Set the first contact as the primary recipient for single message case
+                    recipient = multiple_contacts[0]
             elif recipient_type == 'group':
                 # Get selected group
                 contact_group = request.form.get('contact_group')
                 # Here you would fetch all contacts in this group
                 # For now, just use the group ID as a placeholder
                 recipient = f"group:{contact_group}"
+                recipients = [recipient]
             elif recipient_type == 'custom':
                 # Get custom numbers
                 custom_numbers = request.form.get('custom_numbers')
                 if custom_numbers:
-                    # Split by comma and use first number
-                    numbers = [num.strip() for num in custom_numbers.split(',')]
+                    # Split by comma or newline
+                    numbers = [num.strip() for num in re.split(r'[,\n]+', custom_numbers) if num.strip()]
                     if numbers:
-                        recipient = numbers[0]  # In a real app, you'd handle multiple recipients
+                        if len(numbers) > 1:
+                            is_bulk = True
+                            recipients = numbers
+                        recipient = numbers[0]
+                        recipients = numbers
             
             data = {
                 'platform': request.form.get('platform', 'whatsapp'),
@@ -89,34 +110,155 @@ def send_message():
         platform = data.get('platform', 'whatsapp').lower()
         message_service = MessageService.create(platform)
         
-        # Send message
-        result = message_service.send_message(
-            recipient=data['recipient'],
-            message=data['message'],
-            media_url=data.get('media_url')
-        )
+        # Handle bulk sending if multiple recipients
+        if is_bulk and recipients and len(recipients) > 1:
+            # Initialize results
+            results = []
+            success_count = 0
+            failed_count = 0
+            
+            # Send to each recipient
+            for recipient_id in recipients:
+                try:
+                    # Send message to individual recipient
+                    result = message_service.send_message(
+                        recipient=recipient_id,
+                        message=data['message'],
+                        media_url=data.get('media_url')
+                    )
+                    
+                    results.append({
+                        'recipient': recipient_id,
+                        'status': result.get('status', 'unknown'),
+                        'success': result.get('success', False)
+                    })
+                    
+                    if result.get('success', False):
+                        success_count += 1
+                    else:
+                        failed_count += 1
+                        
+                except Exception as e:
+                    current_app.logger.error(f"Error sending to recipient {recipient_id}: {str(e)}")
+                    results.append({
+                        'recipient': recipient_id,
+                        'status': 'error',
+                        'error': str(e),
+                        'success': False
+                    })
+                    failed_count += 1
+            
+            # Set overall result
+            result = {
+                'success': success_count > 0,
+                'status': 'partial' if failed_count > 0 else 'sent',
+                'details': {
+                    'total': len(recipients),
+                    'success': success_count,
+                    'failed': failed_count,
+                    'results': results
+                }
+            }
+        else:
+            # Send to single recipient
+            result = message_service.send_message(
+                recipient=data['recipient'],
+                message=data['message'],
+                media_url=data.get('media_url')
+            )
+        
+        # Check if this is a draft or scheduled message
+        is_draft = request.form.get('is_draft') == '1'
+        is_scheduled = request.form.get('schedule_message') == 'on'
+        scheduled_time = None
+        
+        if is_scheduled:
+            scheduled_time = request.form.get('schedule_time')
+            if scheduled_time:
+                scheduled_time = datetime.fromisoformat(scheduled_time.replace('Z', '+00:00'))
         
         # Save to database
-        message = Message(
-            platform=platform,
-            recipient=data['recipient'],
-            message_text=data['message'],
-            media_url=data.get('media_url'),
-            status=result['status']
-        )
-        db.session.add(message)
-        db.session.commit()
+        if is_bulk and recipients and len(recipients) > 1 and not is_draft:
+            # Save multiple messages for each recipient
+            message_ids = []
+            for recipient_id in recipients:
+                # Find the result for this recipient if available
+                recipient_result = result
+                if 'details' in result and 'results' in result['details']:
+                    for r in result['details']['results']:
+                        if r['recipient'] == recipient_id:
+                            recipient_result = r
+                            break
+                
+                # Create message record
+                message = Message(
+                    platform=platform,
+                    recipient=recipient_id,
+                    message_text=data['message'],
+                    media_url=data.get('media_url'),
+                    status='draft' if is_draft else ('scheduled' if is_scheduled else recipient_result.get('status', result['status'])),
+                    scheduled_at=scheduled_time,
+                    user_id=current_user.id
+                )
+                db.session.add(message)
+                message_ids.append(message.id)
+            
+            # Commit all messages at once
+            db.session.commit()
+            
+            # Use the first message for response
+            message = Message.query.get(message_ids[0]) if message_ids else None
+        else:
+            # Save single message
+            message = Message(
+                platform=platform,
+                recipient=data['recipient'],
+                message_text=data['message'],
+                media_url=data.get('media_url'),
+                status='draft' if is_draft else ('scheduled' if is_scheduled else result['status']),
+                scheduled_at=scheduled_time,
+                user_id=current_user.id
+            )
+            db.session.add(message)
+            db.session.commit()
         
         # Return JSON or redirect based on request type
         if request.is_json:
-            return jsonify({
+            response_data = {
                 'success': True,
-                'message_id': message.id,
-                'status': result['status']
-            })
+                'status': message.status if message else 'unknown'
+            }
+            
+            if message:
+                response_data['message_id'] = message.id
+            
+            # Add bulk sending details if applicable
+            if is_bulk and 'details' in result:
+                response_data['bulk'] = True
+                response_data['details'] = result['details']
+            
+            return jsonify(response_data)
         else:
-            flash('Message sent successfully!', 'success')
-            return redirect(url_for('message.index'))
+            if is_draft:
+                flash('Message saved as draft!', 'success')
+                return redirect(url_for('message.drafts'))
+            elif is_scheduled:
+                if is_bulk:
+                    flash(f'Scheduled {result["details"]["total"]} messages successfully!', 'success')
+                else:
+                    flash('Message scheduled successfully!', 'success')
+                return redirect(url_for('message.scheduled'))
+            else:
+                if is_bulk:
+                    success_count = result['details']['success']
+                    total_count = result['details']['total']
+                    if success_count == total_count:
+                        flash(f'All {total_count} messages sent successfully!', 'success')
+                    else:
+                        flash(f'Sent {success_count} out of {total_count} messages successfully.', 'warning')
+                else:
+                    flash('Message sent successfully!', 'success')
+                return redirect(url_for('message.index'))
         
     except Exception as e:
         current_app.logger.error(f"Error sending message: {str(e)}")
@@ -517,7 +659,53 @@ def compose():
     Returns:
         Rendered template for composing messages
     """
-    return render_template('messages/compose.html')
+    # Get contacts from database
+    from app.models.contact import Contact
+    contacts = Contact.query.order_by(Contact.name).all()
+    
+    # Get contact groups from database
+    from app.models.contact import ContactGroup
+    groups = ContactGroup.query.all()
+    
+    # Check if there are phone numbers in the query string
+    to_numbers = request.args.get('to', '')
+    
+    # Get message templates from database
+    from app.models.message_queue import MessageTemplate
+    templates = MessageTemplate.query.filter_by(is_active=True).all()
+    
+    return render_template('messages/compose.html', contacts=contacts, groups=groups, templates=templates, to_numbers=to_numbers)
+
+@bp.route('/api/list_templates', methods=['GET'])
+@login_required
+def api_list_templates():
+    """API endpoint to list message templates.
+    
+    Returns:
+        JSON response with list of templates
+    """
+    try:
+        # Get message templates from database
+        from app.models.message_queue import MessageTemplate
+        templates = MessageTemplate.query.filter_by(is_active=True).all()
+        
+        # Convert to list of dictionaries
+        templates_list = [{
+            'id': template.id,
+            'name': template.name,
+            'content': template.content,
+            'category_id': template.category_id,
+            'created_at': template.created_at.isoformat() if template.created_at else None,
+            'updated_at': template.updated_at.isoformat() if template.updated_at else None
+        } for template in templates]
+        
+        return jsonify({
+            'success': True,
+            'templates': templates_list
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error listing templates: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/templates', methods=['GET'])
 @login_required
@@ -527,7 +715,15 @@ def templates():
     Returns:
         Rendered template with message templates
     """
-    return render_template('messages/templates.html')
+    # Get message templates from database
+    from app.models.message_queue import MessageTemplate
+    templates = MessageTemplate.query.filter_by(is_active=True).all()
+    
+    # Get categories from database
+    from app.models.template_category import MessageTemplateCategory
+    categories = MessageTemplateCategory.query.filter_by(is_active=True).all()
+    
+    return render_template('messages/templates.html', templates=templates, categories=categories)
 
 @bp.route('/history', methods=['GET'])
 @login_required
@@ -539,7 +735,8 @@ def history():
     """
     return render_template('messages/history.html')
 
-# Keep the first definition (around line 470)
+# This route was removed to fix duplicate endpoint issue
+
 @bp.route('/scheduled', methods=['GET'])
 @login_required
 def scheduled():
@@ -548,10 +745,29 @@ def scheduled():
     Returns:
         Rendered template with scheduled messages
     """
-    # Add the scheduled message retrieval logic from the second function if needed
-    scheduled_messages = []  # Replace with actual scheduled message retrieval
+    # Get scheduled messages from database
+    scheduled_messages = Message.query.filter_by(
+        status='scheduled', 
+        user_id=current_user.id
+    ).order_by(Message.scheduled_at.asc()).all()
     
-    return render_template('messages/scheduled.html', messages=scheduled_messages)
+    return render_template('messages/scheduled.html', scheduled_messages=scheduled_messages)
+
+@bp.route('/drafts', methods=['GET'])
+@login_required
+def drafts():
+    """Display draft messages.
+    
+    Returns:
+        Rendered drafts template with draft messages
+    """
+    # Get draft messages from database for current user
+    draft_messages = Message.query.filter_by(
+        status='draft',
+        user_id=current_user.id
+    ).order_by(Message.created_at.desc()).all()
+    
+    return render_template('messages/drafts.html', draft_messages=draft_messages)
 
 # Remove the second definition (around line 670)
 # DELETE THE FOLLOWING CODE:
@@ -570,29 +786,294 @@ def scheduled():
 #     
 #     return render_template('messages/scheduled.html', messages=scheduled_messages)
 
+@bp.route('/edit_draft/<int:message_id>', methods=['GET'])
+@login_required
+def edit_draft(message_id):
+    """Edit a draft message.
+    
+    Args:
+        message_id: ID of the draft message to edit
+        
+    Returns:
+        Rendered compose template with draft message data
+    """
+    # Get the draft message
+    message = Message.query.filter_by(id=message_id, status='draft', user_id=current_user.id).first_or_404()
+    
+    # Get contacts from database
+    from app.models.contact import Contact
+    contacts = Contact.query.all()
+    
+    # Get contact groups from database
+    from app.models.contact import ContactGroup
+    groups = ContactGroup.query.all()
+    
+    # Get message templates from database
+    from app.models.message_queue import MessageTemplate
+    templates = MessageTemplate.query.filter_by(is_active=True).all()
+    
+    return render_template('messages/compose.html', 
+                          contacts=contacts, 
+                          groups=groups, 
+                          templates=templates,
+                          draft_message=message)
+
+@bp.route('/send_draft', methods=['POST'])
+@login_required
+def send_draft():
+    """Send a draft message.
+    
+    Returns:
+        JSON response with status of the message send operation
+    """
+    try:
+        # Get the draft message ID
+        message_id = request.form.get('message_id')
+        if not message_id:
+            return jsonify({'success': False, 'error': 'Message ID is required'})
+        
+        # Get the draft message
+        message = Message.query.filter_by(id=message_id, status='draft', user_id=current_user.id).first()
+        if not message:
+            return jsonify({'success': False, 'error': 'Draft message not found'})
+        
+        # Create message service based on platform
+        platform = message.platform.lower()
+        message_service = MessageService.create(platform)
+        
+        # Send message
+        result = message_service.send_message(
+            recipient=message.recipient,
+            message=message.message_text,
+            media_url=message.media_url
+        )
+        
+        # Update message status
+        message.status = result['status']
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message_id': message.id,
+            'status': message.status
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error sending draft message: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to send draft message',
+            'details': str(e)
+        }), 500
+
+@bp.route('/delete_message', methods=['POST'])
+@login_required
+def delete_message():
+    """Delete a message (draft or scheduled).
+    
+    Returns:
+        Redirect to appropriate page based on message type
+    """
+    try:
+        # Get the message ID
+        message_id = request.form.get('message_id')
+        if not message_id:
+            flash('Message ID is required', 'error')
+            return redirect(url_for('message.drafts'))
+        
+        # Get the message
+        message = Message.query.filter_by(id=message_id, user_id=current_user.id).first()
+        if not message:
+            flash('Message not found', 'error')
+            return redirect(url_for('message.drafts'))
+        
+        # Store message status for redirect
+        status = message.status
+        
+        # Delete the message
+        db.session.delete(message)
+        db.session.commit()
+        
+        flash('Message deleted successfully', 'success')
+        
+        # Redirect based on message type
+        if status == 'draft':
+            return redirect(url_for('message.drafts'))
+        elif status == 'scheduled':
+            return redirect(url_for('message.scheduled'))
+        else:
+            return redirect(url_for('message.index'))
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting message: {str(e)}")
+        flash(f'Error deleting message: {str(e)}', 'error')
+        return redirect(url_for('message.drafts'))
+
+@bp.route('/get_message_details', methods=['GET'])
+@login_required
+def get_message_details():
+    """Get message details for display in modal.
+    
+    Returns:
+        JSON response with message details
+    """
+    try:
+        # Get the message ID
+        message_id = request.args.get('message_id')
+        if not message_id:
+            return jsonify({'success': False, 'error': 'Message ID is required'})
+        
+        # Get the message
+        message = Message.query.filter_by(id=message_id, user_id=current_user.id).first()
+        if not message:
+            return jsonify({'success': False, 'error': 'Message not found'})
+        
+        # Format recipient display
+        recipient_display = message.recipient
+        if message.recipient.startswith('group:'):
+            group_id = message.recipient.replace('group:', '')
+            from app.models.contact import ContactGroup
+            group = ContactGroup.query.get(group_id)
+            if group:
+                recipient_display = f'Group: {group.name}'
+        elif message.recipient.isdigit():
+            from app.models.contact import Contact
+            contact = Contact.query.get(message.recipient)
+            if contact:
+                recipient_display = f'Contact: {contact.name}'
+        
+        # Return message details
+        return jsonify({
+            'success': True,
+            'message': {
+                'id': message.id,
+                'recipient': recipient_display,
+                'message_text': message.message_text,
+                'media_url': message.media_url,
+                'status': message.status,
+                'created_at': message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'scheduled_at': message.scheduled_at.strftime('%Y-%m-%d %H:%M:%S') if message.scheduled_at else None
+            }
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error getting message details: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to get message details',
+            'details': str(e)
+        }), 500
+
 @bp.route('/templates/create', methods=['GET'])
-@login_required  # Add decorator here
+@login_required
 def templates_create():
     """Display template creation form.
     
     Returns:
         Rendered template creation form
     """
-    return render_template('templates/create.html', edit_mode=False)
+    # Get categories from database
+    from app.models.template_category import MessageTemplateCategory
+    categories = MessageTemplateCategory.query.filter_by(is_active=True).all()
+    
+    return render_template('messages/create.html', edit_mode=False, categories=categories)
 
 
 @bp.route('/templates/store', methods=['POST'])
-@login_required  # Add decorator here
+@login_required
 def templates_store():
     """Store a new template.
     
     Returns:
         Redirect to templates list
     """
-    # This is a placeholder - you'll need to implement template storage logic
-    flash('Template created successfully!', 'success')
+    try:
+        # Get form data
+        name = request.form.get('name')
+        content = request.form.get('content')
+        category_id = request.form.get('category_id') or None
+        
+        # Validate required fields
+        if not name or not content:
+            flash('Template name and content are required', 'error')
+            return redirect(url_for('message.templates_create'))
+        
+        # Handle media file upload if provided
+        media_url = None
+        if 'media' in request.files and request.files['media'].filename:
+            media_file = request.files['media']
+            
+            # Generate a unique filename
+            filename = secure_filename(media_file.filename)
+            unique_filename = f"{int(time.time())}_{filename}"
+            
+            # Create media directory if it doesn't exist
+            media_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'templates')
+            os.makedirs(media_dir, exist_ok=True)
+            
+            # Save the file
+            file_path = os.path.join(media_dir, unique_filename)
+            media_file.save(file_path)
+            
+            # Set the media URL for database storage
+            media_url = f"/uploads/templates/{unique_filename}"
+        
+        # Import the template model
+        from app.models.message_queue import MessageTemplate
+        
+        # Create new template
+        template = MessageTemplate(
+            name=name,
+            content=content,
+            category_id=category_id,
+            media_url=media_url
+        )
+        
+        # Save to database
+        db.session.add(template)
+        db.session.commit()
+        
+        flash('Template created successfully!', 'success')
+        return redirect(url_for('message.templates'))
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating template: {str(e)}")
+        flash(f'Error creating template: {str(e)}', 'error')
+        return redirect(url_for('message.templates_create'))
+
+
+@bp.route('/templates/edit/<int:template_id>', methods=['GET'])
+@login_required
+def templates_edit(template_id):
+    """Display template edit form.
     
-    return redirect(url_for('message.templates'))
+    Args:
+        template_id: ID of the template to edit
+        
+    Returns:
+        Rendered template edit form
+    """
+    try:
+        # Import the template model
+        from app.models.message_queue import MessageTemplate
+        from app.models.template_category import MessageTemplateCategory
+        
+        # Find the template
+        template = MessageTemplate.query.get(template_id)
+        if not template:
+            flash('Template not found', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Get categories
+        categories = MessageTemplateCategory.query.filter_by(is_active=True).all()
+        
+        return render_template('messages/create.html', template=template, categories=categories, edit_mode=True)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error loading template for edit: {str(e)}")
+        flash(f'Error loading template: {str(e)}', 'error')
+        return redirect(url_for('message.templates'))
 
 
 @bp.route('/templates/update', methods=['POST'])
@@ -603,11 +1084,69 @@ def templates_update():
     Returns:
         Redirect to templates list
     """
-    
-    # This is a placeholder - you'll need to implement template update logic
-    flash('Template updated successfully!', 'success')
-    
-    return redirect(url_for('message.templates'))
+    try:
+        # Get form data
+        template_id = request.form.get('id')
+        name = request.form.get('name')
+        content = request.form.get('content')
+        category_id = request.form.get('category_id') or None
+        
+        # Validate required fields
+        if not template_id or not name or not content:
+            flash('Template ID, name, and content are required', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Import the template model
+        from app.models.message_queue import MessageTemplate
+        
+        # Find the template
+        template = MessageTemplate.query.get(template_id)
+        if not template:
+            flash('Template not found', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Handle media file upload if provided
+        if 'media' in request.files and request.files['media'].filename:
+            media_file = request.files['media']
+            
+            # Generate a unique filename
+            filename = secure_filename(media_file.filename)
+            unique_filename = f"{int(time.time())}_{filename}"
+            
+            # Create media directory if it doesn't exist
+            media_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'templates')
+            os.makedirs(media_dir, exist_ok=True)
+            
+            # Save the file
+            file_path = os.path.join(media_dir, unique_filename)
+            media_file.save(file_path)
+            
+            # Delete old media file if exists
+            if template.media_url:
+                old_file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], template.media_url.lstrip('/'))
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+            
+            # Set the new media URL
+            template.media_url = f"/uploads/templates/{unique_filename}"
+        
+        # Update template fields
+        template.name = name
+        template.content = content
+        template.category_id = category_id
+        template.updated_at = datetime.utcnow()
+        
+        # Save to database
+        db.session.commit()
+        
+        flash('Template updated successfully!', 'success')
+        return redirect(url_for('message.templates'))
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating template: {str(e)}")
+        flash(f'Error updating template: {str(e)}', 'error')
+        return redirect(url_for('message.templates'))
 
 
 @bp.route('/templates/create_category', methods=['POST'])
@@ -618,9 +1157,34 @@ def templates_create_category():
     Returns:
         Redirect to templates list
     """
-    
-    # This is a placeholder - you'll need to implement category creation logic
-    flash('Category created successfully!', 'success')
+    try:
+        # Get category name from form
+        name = request.form.get('name')
+        
+        if not name:
+            flash('Category name is required', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Import the category model
+        from app.models.template_category import MessageTemplateCategory
+        
+        # Check if category already exists
+        existing_category = MessageTemplateCategory.query.filter_by(name=name).first()
+        if existing_category:
+            flash(f'Category "{name}" already exists', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Create new category
+        category = MessageTemplateCategory(name=name)
+        db.session.add(category)
+        db.session.commit()
+        
+        flash(f'Category "{name}" created successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating category: {str(e)}")
+        flash(f'Error creating category: {str(e)}', 'error')
     
     return redirect(url_for('message.templates'))
 
@@ -633,11 +1197,8 @@ def templates_store_category():
     Returns:
         Redirect to templates list
     """
-    
-    # This is a placeholder - you'll need to implement category storage logic
-    flash('Category stored successfully!', 'success')
-    
-    return redirect(url_for('message.templates'))
+    # This route is redundant with create_category, so we'll just redirect there
+    return redirect(url_for('message.templates_create_category'), code=307)
 
 
 @bp.route('/templates/update_category', methods=['POST'])
@@ -648,9 +1209,43 @@ def templates_update_category():
     Returns:
         Redirect to templates list
     """
-    
-    # This is a placeholder - you'll need to implement category update logic
-    flash('Category updated successfully!', 'success')
+    try:
+        # Get category ID and name from form
+        category_id = request.form.get('id')
+        name = request.form.get('name')
+        
+        if not category_id or not name:
+            flash('Category ID and name are required', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Import the category model
+        from app.models.template_category import MessageTemplateCategory
+        
+        # Get category from database
+        category = MessageTemplateCategory.query.get(category_id)
+        if not category:
+            flash(f'Category with ID {category_id} not found', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Check if another category with the same name exists
+        existing_category = MessageTemplateCategory.query.filter(
+            MessageTemplateCategory.name == name,
+            MessageTemplateCategory.id != category_id
+        ).first()
+        if existing_category:
+            flash(f'Another category with name "{name}" already exists', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Update category name
+        category.name = name
+        db.session.commit()
+        
+        flash(f'Category updated successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating category: {str(e)}")
+        flash(f'Error updating category: {str(e)}', 'error')
     
     return redirect(url_for('message.templates'))
 
@@ -663,9 +1258,41 @@ def templates_delete_category():
     Returns:
         Redirect to templates list
     """
-    
-    # This is a placeholder - you'll need to implement category deletion logic
-    flash('Category deleted successfully!', 'success')
+    try:
+        # Get category ID from form
+        category_id = request.form.get('id')
+        
+        if not category_id:
+            flash('Category ID is required', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Import the category model
+        from app.models.template_category import MessageTemplateCategory
+        from app.models.message_queue import MessageTemplate
+        
+        # Get category from database
+        category = MessageTemplateCategory.query.get(category_id)
+        if not category:
+            flash(f'Category with ID {category_id} not found', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Check if there are templates using this category
+        templates_count = MessageTemplate.query.filter_by(category_id=category_id).count()
+        if templates_count > 0:
+            # Update templates to have no category
+            MessageTemplate.query.filter_by(category_id=category_id).update({MessageTemplate.category_id: None})
+            flash(f'Removed category from {templates_count} templates', 'info')
+        
+        # Delete the category
+        db.session.delete(category)
+        db.session.commit()
+        
+        flash('Category deleted successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting category: {str(e)}")
+        flash(f'Error deleting category: {str(e)}', 'error')
     
     return redirect(url_for('message.templates'))
 
@@ -678,9 +1305,39 @@ def templates_delete():
     Returns:
         Redirect to templates list
     """
-    
-    # This is a placeholder - you'll need to implement template deletion logic
-    flash('Template deleted successfully!', 'success')
+    try:
+        # Get template ID from form
+        template_id = request.form.get('id')
+        
+        if not template_id:
+            flash('Template ID is required', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Import the template model
+        from app.models.message_queue import MessageTemplate
+        
+        # Find the template
+        template = MessageTemplate.query.get(template_id)
+        if not template:
+            flash('Template not found', 'error')
+            return redirect(url_for('message.templates'))
+        
+        # Delete media file if exists
+        if template.media_url:
+            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], template.media_url.lstrip('/'))
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        
+        # Delete template from database
+        db.session.delete(template)
+        db.session.commit()
+        
+        flash('Template deleted successfully!', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting template: {str(e)}")
+        flash(f'Error deleting template: {str(e)}', 'error')
     
     return redirect(url_for('message.templates'))
 
@@ -693,11 +1350,54 @@ def templates_get():
     Returns:
         JSON response with template data
     """
+    try:
+        # Get template ID from query parameters
+        template_id = request.args.get('id')
+        
+        if not template_id:
+            return jsonify({'success': False, 'message': 'Template ID is required'})
+        
+        # Import the template model
+        from app.models.message_queue import MessageTemplate
+        
+        # Find the template
+        template = MessageTemplate.query.get(template_id)
+        if not template:
+            return jsonify({'success': False, 'message': 'Template not found'})
+        
+        # Convert template to dictionary
+        template_data = template.to_dict()
+        
+        return jsonify({'success': True, 'template': template_data})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving template: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error retrieving template: {str(e)}'})
+
+
+@bp.route('/templates/get_all', methods=['GET'])
+@login_required
+def templates_get_all():
+    """Get all active templates.
     
-    # This is a placeholder - you'll need to implement template retrieval logic
-    template = {'id': request.args.get('id'), 'name': 'Sample Template', 'content': 'Sample content'}
-    
-    return jsonify({'success': True, 'template': template})
+    Returns:
+        JSON response with all templates data
+    """
+    try:
+        # Import the template model
+        from app.models.message_queue import MessageTemplate
+        
+        # Get all active templates
+        templates = MessageTemplate.query.filter_by(is_active=True).all()
+        
+        # Convert templates to list of dictionaries
+        templates_data = [template.to_dict() for template in templates]
+        
+        return jsonify({'success': True, 'templates': templates_data})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving templates: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error retrieving templates: {str(e)}'})
 
 
 @bp.route('/templates/get_contact_data', methods=['GET'])

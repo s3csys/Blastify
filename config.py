@@ -15,6 +15,9 @@ class Config:
     FLASK_HOST = os.environ.get('FLASK_HOST') or '0.0.0.0'
     FLASK_PORT = int(os.environ.get('FLASK_PORT') or 6000)
     
+    # Upload folder configuration
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'uploads')
+    
     # Database configuration
     DATABASE_ENCRYPTION_KEY = os.environ.get('DATABASE_ENCRYPTION_KEY') or 'default-encryption-key-change-in-production'
     # Use a simpler SQLite connection without encryption for development

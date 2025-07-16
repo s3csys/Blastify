@@ -242,7 +242,7 @@ def get_logs():
             
             # For Linux, we could check syslog or journalctl
             elif os.path.exists('/var/log/syslog'):
-                cmd = 'grep -i "chrome\|devtools\|selenium" /var/log/syslog | tail -n 50'
+                cmd = r'grep -i "chrome\|devtools\|selenium" /var/log/syslog | tail -n 50'
                 result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
                 if result.stdout.strip():
                     devtools_errors = [f"System Log: {line}" for line in result.stdout.splitlines() if line.strip()]
