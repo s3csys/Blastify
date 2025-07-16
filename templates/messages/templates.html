@@ -248,105 +248,14 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- JavaScript for templates page has been moved to src/js/modules/templates/templates.js -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Category filter
-        $('.dropdown-item').on('click', function(e) {
-            e.preventDefault();
-            
-            // Update dropdown button text
-            $('#categoryFilterDropdown').text($(this).text());
-            
-            // Get category ID
-            const categoryId = $(this).data('category-id');
-            
-            // Show all templates if 'All Categories' is selected
-            if (!categoryId) {
-                $('.template-card').show();
-                return;
-            }
-            
-            // Hide all templates first
-            $('.template-card').hide();
-            
-            // Show templates for the selected category
-            $(`.template-card[data-category-id="${categoryId}"]`).show();
-        });
-
-        // Edit category
-        $('.edit-category').on('click', function() {
-            const categoryId = $(this).data('category-id');
-            const categoryName = $(this).data('category-name');
-            
-            $('#editCategoryId').val(categoryId);
-            $('#editCategoryName').val(categoryName);
-            
-            $('#editCategoryModal').modal('show');
-        });
-
-        // Delete category
-        $('.delete-category').on('click', function() {
-            const categoryId = $(this).data('category-id');
-            const categoryName = $(this).data('category-name');
-            
-            $('#deleteCategoryId').val(categoryId);
-            $('#deleteCategoryName').text(categoryName);
-            
-            $('#deleteCategoryModal').modal('show');
-        });
-
-        // Delete template
-        $('#deleteTemplateModal').on('show.bs.modal', function(event) {
-            const button = $(event.relatedTarget);
-            const templateId = button.data('template-id');
-            const templateName = button.data('template-name');
-            
-            $('#deleteTemplateId').val(templateId);
-            $('#deleteTemplateName').text(templateName);
-        });
-
-        // Preview template
-        $('.preview-template').on('click', function() {
-            const templateId = $(this).data('template-id');
-            
-            // Fetch the template content via AJAX
-            $.ajax({
-                url: "{{ url_for('message.templates_get') }}",
-                type: 'GET',
-                data: { id: templateId },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        // Populate the preview modal
-                        let previewHtml = '<div class="alert alert-info">This is how your message will look:</div>';
-                        previewHtml += '<div class="card"><div class="card-body">' + response.template.content + '</div></div>';
-                        
-                        // Add media preview if available
-                        if (response.template.media_url) {
-                            previewHtml += '<div class="mt-3"><strong>Media:</strong><br>';
-                            previewHtml += '<img src="' + response.template.media_url + '" class="img-fluid mt-2" alt="Media Preview"></div>';
-                        }
-                        
-                        $('#templatePreviewContent').html(previewHtml);
-                    } else {
-                        $('#templatePreviewContent').html(
-                            '<div class="alert alert-danger">Failed to load template: ' + response.message + '</div>'
-                        );
-                    }
-                },
-                error: function(xhr) {
-                    $('#templatePreviewContent').html(
-                        '<div class="alert alert-danger">Failed to load template: ' + 
-                        (xhr.responseJSON ? xhr.responseJSON.message : 'Server error') + '</div>'
-                    );
-                }
-            });
-            
-            // Update the Use Template button href
-            $('#useTemplateBtn').attr('href', `{{ url_for('message.compose') }}?template_id=${templateId}`);
-            
-            $('#templatePreviewModal').modal('show');
-        });
-    });
+    // Template URLs for AJAX calls
+    const templateUrls = {
+        get: "{{ url_for('message.templates_get') }}",
+        getContactData: "{{ url_for('message.templates_get_contact_data') }}",
+        preview: "{{ url_for('message.templates_preview') }}",
+        compose: "{{ url_for('message.compose') }}"
+    };
 </script>
 {% endblock %}

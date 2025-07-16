@@ -1408,11 +1408,39 @@ def templates_get_contact_data():
     Returns:
         JSON response with contact data
     """
-    
-    # This is a placeholder - you'll need to implement contact data retrieval logic
-    contact = {'id': request.args.get('contact_id'), 'name': 'Sample Contact', 'phone': '+1234567890'}
-    
-    return jsonify({'success': True, 'contact': contact})
+    try:
+        contact_id = request.args.get('contact_id')
+        
+        if not contact_id:
+            # If no contact ID provided, return a sample contact
+            return jsonify({
+                'success': True, 
+                'contact': {
+                    'id': 0,
+                    'name': 'Sample Contact',
+                    'phone': '+1234567890',
+                    'email': 'sample@example.com',
+                    'group': 'Sample Group'
+                }
+            })
+        
+        # Import the contact model
+        from app.models.contact import Contact
+        
+        # Find the contact
+        contact = Contact.query.get(contact_id)
+        if not contact:
+            return jsonify({'success': False, 'message': 'Contact not found'})
+        
+        # Return contact data
+        return jsonify({
+            'success': True,
+            'contact': contact.to_dict()
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error retrieving contact data: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error retrieving contact data: {str(e)}'})
 
 
 @bp.route('/templates/preview', methods=['GET'])
@@ -1423,11 +1451,70 @@ def templates_preview():
     Returns:
         JSON response with preview data
     """
-    
-    # This is a placeholder - you'll need to implement template preview logic
-    preview = {'content': 'Sample preview content'}
-    
-    return jsonify({'success': True, 'preview': preview})
+    try:
+        # Get template ID and contact ID from query parameters
+        template_id = request.args.get('template_id')
+        contact_id = request.args.get('contact_id')
+        
+        if not template_id:
+            return jsonify({'success': False, 'message': 'Template ID is required'})
+        
+        # Import the template model
+        from app.models.message_queue import MessageTemplate
+        
+        # Find the template
+        template = MessageTemplate.query.get(template_id)
+        if not template:
+            return jsonify({'success': False, 'message': 'Template not found'})
+        
+        # Get contact data for personalization
+        contact_data = {}
+        if contact_id:
+            # Import the contact model
+            from app.models.contact import Contact
+            
+            # Find the contact
+            contact = Contact.query.get(contact_id)
+            if contact:
+                contact_data = contact.to_dict()
+            else:
+                # Use sample data if contact not found
+                contact_data = {
+                    'name': 'Sample Contact',
+                    'phone': '+1234567890',
+                    'email': 'sample@example.com',
+                    'group': 'Sample Group'
+                }
+        else:
+            # Use sample data if no contact ID provided
+            contact_data = {
+                'name': 'Sample Contact',
+                'phone': '+1234567890',
+                'email': 'sample@example.com',
+                'group': 'Sample Group'
+            }
+        
+        # Personalize the template content
+        content = template.content
+        content = content.replace('{name}', contact_data.get('name', 'Contact Name'))
+        content = content.replace('{phone}', contact_data.get('phone', 'Phone Number'))
+        content = content.replace('{email}', contact_data.get('email', 'Email'))
+        content = content.replace('{group}', contact_data.get('group', 'Group'))
+        content = content.replace('{date}', datetime.now().strftime('%Y-%m-%d'))
+        
+        # Create preview data
+        preview = {
+            'content': content,
+            'media_url': template.media_url,
+            'contact': contact_data
+        }
+        
+        return jsonify({'success': True, 'preview': preview})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error generating template preview: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error generating template preview: {str(e)}'})
+
 
 
 @bp.route('/templates/media/<int:id>', methods=['GET'])
