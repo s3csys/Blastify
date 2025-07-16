@@ -11,7 +11,7 @@
             <a href="{{ url_for('contact.index') }}" class="btn btn-secondary">
                 <i class="align-middle" data-feather="arrow-left"></i> Back to Contacts
             </a>
-            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGroupModal">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addGroupModal">
                 <i class="align-middle" data-feather="plus"></i> Add Group
             </button>
         </div>
@@ -42,7 +42,26 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <!-- Groups will be loaded dynamically -->
+                                {% if groups %}
+                                    {% for group in groups %}
+                                    <tr>
+                                        <td>{{ group.name }}</td>
+                                        <td>{{ group.count }}</td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <a href="{{ url_for('contact.index', group=group.name) }}" class="btn btn-sm btn-outline-primary">
+                                                    <i class="align-middle" data-feather="eye"></i> View Contacts
+                                                </a>
+                                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDeleteGroup('{{ group.name }}')">
+                                                    <i class="align-middle" data-feather="trash-2"></i> Delete
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
                                 <tr id="loadingRow">
                                     <td colspan="5" class="text-center">
                                         <div class="spinner-border text-primary" role="status">
@@ -50,6 +69,7 @@
                                         </div>
                                     </td>
                                 </tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
@@ -188,7 +208,7 @@
 </div>
 
 <!-- Add Group Modal -->
-<div class="modal fade theme-modal" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true">
+<div class="modal fade theme-modal" id="addGroupModal" tabindex="-1" aria-labelledby="addGroupModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -217,7 +237,7 @@
 </div>
 
 <!-- Edit Group Modal -->
-<div class="modal fade theme-modal" id="editGroupModal" tabindex="-1" aria-labelledby="editGroupModalLabel" aria-hidden="true">
+<div class="modal fade theme-modal" id="editGroupModal" tabindex="-1" aria-labelledby="editGroupModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -247,7 +267,7 @@
 </div>
 
 <!-- Delete Group Confirmation Modal -->
-<div class="modal fade theme-modal" id="deleteGroupModal" tabindex="-1" aria-labelledby="deleteGroupModalLabel" aria-hidden="true">
+<div class="modal fade theme-modal" id="deleteGroupModal" tabindex="-1" aria-labelledby="deleteGroupModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -273,7 +293,7 @@
 </div>
 
 <!-- Add Contacts to Group Modal -->
-<div class="modal fade theme-modal" id="addContactsToGroupModal" tabindex="-1" aria-labelledby="addContactsToGroupModalLabel" aria-hidden="true">
+<div class="modal fade theme-modal" id="addContactsToGroupModal" tabindex="-1" aria-labelledby="addContactsToGroupModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -323,7 +343,7 @@
 </div>
 
 <!-- Send Message to Group Modal -->
-<div class="modal fade" id="sendMessageToGroupModal" tabindex="-1" aria-labelledby="sendMessageToGroupModalLabel" aria-hidden="true">
+<div class="modal fade theme-modal" id="sendMessageToGroupModal" tabindex="-1" aria-labelledby="sendMessageToGroupModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -393,14 +413,99 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('DOM fully loaded and parsed');
+        
+        // Check if the page structure is correct
+        const groupsTable = document.getElementById('groupsTable');
+        if (!groupsTable) {
+            console.error('CRITICAL ERROR: Groups table not found in the DOM!');
+            alert('Error: The groups table element is missing. Please contact support.');
+            return;
+        } else {
+            console.log('Groups table found:', groupsTable);
+        }
+        
         // Initialize Feather icons
-        feather.replace();
+        try {
+            feather.replace();
+            console.log('Feather icons initialized successfully');
+        } catch (error) {
+            console.error('Error initializing Feather icons:', error);
+        }
         
         // Apply theme-specific adjustments
-        applyThemeAdjustments();
+        if (typeof applyThemeAdjustments === 'function') {
+            try {
+                applyThemeAdjustments();
+                console.log('Theme adjustments applied successfully');
+            } catch (error) {
+                console.error('Error applying theme adjustments:', error);
+            }
+        } else {
+            console.log('applyThemeAdjustments function not found, skipping');
+        }
         
-        // Load groups
-        loadGroups();
+        // Check for group parameter in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupParam = urlParams.get('group');
+        if (groupParam) {
+            console.log('Group parameter found in URL:', groupParam);
+        }
+        
+        // Debug log to check if this code is running
+        console.log('Groups page loaded, loading groups data...');
+        
+        // Check if all required elements exist
+        const requiredElements = [
+            { id: 'groupsTable', name: 'Groups Table' },
+            { id: 'loadingRow', name: 'Loading Row' },
+            { id: 'groupCount', name: 'Group Count' },
+            { id: 'searchGroups', name: 'Search Input' },
+            { id: 'searchGroupsBtn', name: 'Search Button' },
+            { id: 'saveGroupBtn', name: 'Save Group Button' },
+            { id: 'addGroupForm', name: 'Add Group Form' }
+        ];
+        
+        requiredElements.forEach(element => {
+            const el = document.getElementById(element.id);
+            if (!el) {
+                console.error(`Required element not found: ${element.name} (ID: ${element.id})`);
+            } else {
+                console.log(`Found required element: ${element.name}`);
+            }
+        });
+        
+        // Load groups with error handling
+        try {
+            loadGroups();
+            
+            // If group parameter exists, select that group after groups are loaded
+            if (groupParam) {
+                // We need to wait for groups to load before selecting
+                setTimeout(() => {
+                    try {
+                        const groupRow = Array.from(document.querySelectorAll('#groupsTable tbody tr'))
+                            .find(row => {
+                                const nameCell = row.cells[0];
+                                return nameCell && nameCell.textContent.trim() === groupParam;
+                            });
+                        
+                        if (groupRow) {
+                            const groupId = groupRow.getAttribute('data-group-id');
+                            if (groupId) {
+                                loadGroupDetails(groupId);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error selecting group from URL parameter:', error);
+                    }
+                }, 500); // Give time for groups to load
+            }
+        } catch (error) {
+            console.error('Error loading groups:', error);
+            // Show error message to user
+            showAlert('danger', 'An error occurred while loading groups. Please try refreshing the page.');
+        }
         
         // Group row click handler
         document.getElementById('groupsTable').addEventListener('click', function(e) {
@@ -444,7 +549,7 @@
             });
             
             // Send request to create group
-            fetch('/contact/groups/add', {
+            fetch('/contacts/api/add_group', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -455,8 +560,9 @@
             .then(data => {
                 if (data.success) {
                     // Close modal and reload groups
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('addGroupModal'));
-                    modal.hide();
+                    const addGroupModal = document.getElementById('addGroupModal');
+                    const bsAddGroupModal = bootstrap.Modal.getInstance(addGroupModal) || new bootstrap.Modal(addGroupModal);
+                    bsAddGroupModal.hide();
                     form.reset();
                     loadGroups();
                     
@@ -477,25 +583,31 @@
             const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
             if (groupId) {
                 // Fetch group details and populate edit form
-                fetch(`/contact/groups/${groupId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('editGroupId').value = data.group.id;
-                        document.getElementById('editGroupName').value = data.group.name;
-                        document.getElementById('editGroupDescription').value = data.group.description || '';
-                        
-                        // Show edit modal
-                        const modal = new bootstrap.Modal(document.getElementById('editGroupModal'));
-                        modal.show();
-                    } else {
-                        showAlert('danger', data.error || 'Failed to load group details.');
+                // Since we don't have a dedicated API endpoint for getting a single group,
+                // we'll use the group name from the UI
+                const groupName = document.getElementById('groupDetailName').textContent;
+                
+                // Create a mock response with the group details
+                const mockResponse = {
+                    success: true,
+                    group: {
+                        id: groupId,
+                        name: groupName,
+                        description: document.getElementById('groupDetailDescription').textContent || ''
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showAlert('danger', 'An error occurred while loading group details.');
-                });
+                };
+                
+                // Process the mock response directly
+                const data = mockResponse;
+                
+                document.getElementById('editGroupId').value = data.group.id;
+                document.getElementById('editGroupName').value = data.group.name;
+                document.getElementById('editGroupDescription').value = data.group.description || '';
+                
+                // Show edit modal
+                const editModal = document.getElementById('editGroupModal');
+                const bsEditModal = bootstrap.Modal.getInstance(editModal) || new bootstrap.Modal(editModal);
+                bsEditModal.show();
             }
         });
         
@@ -517,19 +629,24 @@
             });
             
             // Send request to update group
-            fetch(`/contact/groups/edit/${data.id}`, {
+            fetch('/contacts/api/update_group', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify({
+                    old_name: document.getElementById('groupDetailName').textContent,
+                    new_name: data.name,
+                    description: data.description
+                })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     // Close modal and reload groups
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('editGroupModal'));
-                    modal.hide();
+                    const editGroupModal = document.getElementById('editGroupModal');
+                    const bsEditGroupModal = bootstrap.Modal.getInstance(editGroupModal) || new bootstrap.Modal(editGroupModal);
+                    bsEditGroupModal.hide();
                     loadGroups();
                     loadGroupDetails(document.getElementById('editGroupId').value);
                     
@@ -556,8 +673,9 @@
                 document.getElementById('confirmDeleteGroupBtn').disabled = true;
                 
                 // Show delete confirmation modal
-                const modal = new bootstrap.Modal(document.getElementById('deleteGroupModal'));
-                modal.show();
+                const deleteModal = document.getElementById('deleteGroupModal');
+                const bsDeleteModal = bootstrap.Modal.getInstance(deleteModal) || new bootstrap.Modal(deleteModal);
+                bsDeleteModal.show();
             }
         });
         
@@ -572,15 +690,20 @@
             
             if (groupId) {
                 // Send request to delete group
-                fetch(`/contact/groups/delete/${groupId}`, {
-                    method: 'POST'
+                fetch('/contacts/api/delete_group', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({name: document.getElementById('groupDetailName').textContent})
                 })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         // Close modal and reload groups
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('deleteGroupModal'));
-                        modal.hide();
+                        const deleteGroupModal = document.getElementById('deleteGroupModal');
+                        const bsDeleteGroupModal = bootstrap.Modal.getInstance(deleteGroupModal) || new bootstrap.Modal(deleteGroupModal);
+                        bsDeleteGroupModal.hide();
                         loadGroups();
                         
                         // Hide group details section
@@ -601,15 +724,16 @@
         
         // Add contacts to group button handler
         document.getElementById('addContactsToGroupBtn').addEventListener('click', function() {
-            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            const groupName = document.getElementById('groupDetailName').textContent;
             
-            if (groupId) {
+            if (groupName) {
                 // Load available contacts
-                loadAvailableContacts(groupId);
+                loadAvailableContacts(groupName);
                 
                 // Show add contacts modal
-                const modal = new bootstrap.Modal(document.getElementById('addContactsToGroupModal'));
-                modal.show();
+                const addContactsModal = document.getElementById('addContactsToGroupModal');
+                const bsAddContactsModal = bootstrap.Modal.getInstance(addContactsModal) || new bootstrap.Modal(addContactsModal);
+                bsAddContactsModal.show();
             }
         });
         
@@ -632,40 +756,68 @@
         
         // Confirm add contacts button handler
         document.getElementById('confirmAddContactsBtn').addEventListener('click', function() {
-            const groupId = document.getElementById('groupDetailName').getAttribute('data-group-id');
+            const groupName = document.getElementById('groupDetailName').textContent;
             const checkboxes = document.querySelectorAll('#availableContactsTable tbody input[type="checkbox"]:checked');
             
-            if (groupId && checkboxes.length > 0) {
+            if (groupName && checkboxes.length > 0) {
                 const contactIds = Array.from(checkboxes).map(checkbox => {
-                    return checkbox.closest('tr').getAttribute('data-contact-id');
-                });
+                    return parseInt(checkbox.value);
+                }).filter(id => !isNaN(id));
+                
+                // Show loading indicator
+                const button = this;
+                const originalText = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Adding...';
                 
                 // Send request to add contacts to group
-                fetch(`/contact/groups/${groupId}/add_contacts`, {
+                fetch('/contacts/api/add_contacts_to_group', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ contact_ids: contactIds })
+                    body: JSON.stringify({ 
+                        group_name: groupName,
+                        contact_ids: contactIds 
+                    })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (data.success) {
                         // Close modal and reload group details
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('addContactsToGroupModal'));
-                        modal.hide();
-                        loadGroupDetails(groupId);
+                        const addContactsModal = document.getElementById('addContactsToGroupModal');
+                        const bsAddContactsModal = bootstrap.Modal.getInstance(addContactsModal) || new bootstrap.Modal(addContactsModal);
+                        bsAddContactsModal.hide();
+                        loadGroupContacts(groupName);
+                        
+                        // Update contact count in the group details
+                        const currentCount = parseInt(document.getElementById('groupContactCount').textContent) || 0;
+                        document.getElementById('groupContactCount').textContent = currentCount + data.updated_count;
                         
                         // Show success message
-                        showAlert('success', `Added ${contactIds.length} contacts to the group!`);
+                        showAlert('success', `Added ${data.updated_count} contacts to the group!`);
                     } else {
                         showAlert('danger', data.error || 'Failed to add contacts to group.');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    showAlert('danger', 'An error occurred while adding contacts to the group.');
+                    showAlert('danger', 'An error occurred while adding contacts to the group. Please try again.');
+                })
+                .finally(() => {
+                    // Restore button state
+                    button.disabled = false;
+                    button.innerHTML = originalText;
                 });
+            } else if (!groupName) {
+                showAlert('warning', 'Please select a group first.');
+            } else if (checkboxes.length === 0) {
+                showAlert('warning', 'Please select at least one contact to add to the group.');
             }
         });
         
@@ -684,8 +836,9 @@
                 loadMessageTemplates();
                 
                 // Show send message modal
-                const modal = new bootstrap.Modal(document.getElementById('sendMessageToGroupModal'));
-                modal.show();
+                const sendMessageModal = document.getElementById('sendMessageToGroupModal');
+                const bsSendMessageModal = bootstrap.Modal.getInstance(sendMessageModal) || new bootstrap.Modal(sendMessageModal);
+                bsSendMessageModal.show();
             }
         });
         
@@ -759,8 +912,9 @@
             .then(data => {
                 if (data.success) {
                     // Close modal
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('sendMessageToGroupModal'));
-                    modal.hide();
+                    const sendMessageModal = document.getElementById('sendMessageToGroupModal');
+                    const bsSendMessageModal = bootstrap.Modal.getInstance(sendMessageModal) || new bootstrap.Modal(sendMessageModal);
+                    bsSendMessageModal.hide();
                     form.reset();
                     
                     // Show success message
@@ -782,8 +936,14 @@
         // Functions
         
         function loadGroups(searchTerm = '') {
+            console.log('Loading groups...');
             // Show loading row
-            document.getElementById('loadingRow').style.display = 'table-row';
+            const loadingRow = document.getElementById('loadingRow');
+            if (loadingRow) {
+                loadingRow.style.display = 'table-row';
+            } else {
+                console.error('Loading row element not found');
+            }
             
             // Build URL with search parameter if provided
             let url = '/contacts/api/list_groups';
@@ -791,13 +951,30 @@
                 url += `?search=${encodeURIComponent(searchTerm)}`;
             }
             
+            console.log('Fetching groups from:', url);
+            
             // Fetch groups
             fetch(url)
-            .then(response => response.json())
+            .then(response => {
+                console.log('API response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('API response data:', data);
                 if (data.success) {
-                    const tableBody = document.getElementById('groupsTable').getElementsByTagName('tbody')[0];
+                    const tableBody = document.getElementById('groupsTable')?.getElementsByTagName('tbody')[0];
+                    if (!tableBody) {
+                        console.error('Table body element not found');
+                        return;
+                    }
+                    
                     const groupCount = document.getElementById('groupCount');
+                    if (!groupCount) {
+                        console.error('Group count element not found');
+                    }
                     
                     // Clear table body except loading row
                     Array.from(tableBody.children).forEach(child => {
@@ -813,7 +990,7 @@
                     groupCount.textContent = data.groups.length;
                     
                     // Add groups to table
-                    if (data.groups.length > 0) {
+                    if (data.groups && data.groups.length > 0) {
                         data.groups.forEach(group => {
                             const row = tableBody.insertRow();
                             row.setAttribute('data-group-id', group.id);
@@ -841,6 +1018,32 @@
                         
                         // Re-initialize Feather icons
                         feather.replace();
+                        
+                        // Add click handlers for the view buttons
+                        document.querySelectorAll('.view-group-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const groupId = this.getAttribute('data-group-id');
+                                loadGroupDetails(groupId);
+                            });
+                        });
+                        
+                        // Add click handlers for the edit buttons
+                        document.querySelectorAll('.edit-group-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const groupId = this.getAttribute('data-group-id');
+                                const groupName = this.closest('tr').cells[0].textContent.trim();
+                                editGroup(groupId, groupName);
+                            });
+                        });
+                        
+                        // Add click handlers for the delete buttons
+                        document.querySelectorAll('.delete-group-btn').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const groupId = this.getAttribute('data-group-id');
+                                const groupName = this.closest('tr').cells[0].textContent.trim();
+                                confirmDeleteGroup(groupName);
+                            });
+                        });
                     } else {
                         const row = tableBody.insertRow();
                         const cell = row.insertCell(0);
@@ -850,11 +1053,12 @@
                     }
                 } else {
                     showAlert('danger', data.error || 'Failed to load groups.');
+                    document.getElementById('loadingRow').style.display = 'none';
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showAlert('danger', 'An error occurred while loading groups.');
+                showAlert('danger', 'An error occurred while loading groups. Please try again.');
                 document.getElementById('loadingRow').style.display = 'none';
             });
         }
@@ -863,41 +1067,57 @@
             // Show group details section
             document.getElementById('groupDetailsSection').style.display = 'block';
             
-            // Fetch group details
-            fetch(`/contact/groups/${groupId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const group = data.group;
-                    
-                    // Update group details
-                    document.getElementById('groupDetailName').textContent = group.name;
-                    document.getElementById('groupDetailName').setAttribute('data-group-id', group.id);
-                    document.getElementById('groupContactCount').textContent = group.contact_count || 0;
-                    document.getElementById('groupMessageCount').textContent = group.message_count || 0;
-                    document.getElementById('groupCreatedDate').textContent = formatDate(group.created_at);
-                    
-                    // Load group contacts
-                    loadGroupContacts(groupId);
-                    
-                    // Scroll to group details section
-                    document.getElementById('groupDetailsSection').scrollIntoView({ behavior: 'smooth' });
+            // Since we don't have a dedicated API endpoint for getting a single group,
+            // we'll use the group name from the table row
+            const row = document.querySelector(`tr[data-group-id="${groupId}"]`);
+            if (!row) {
+                showAlert('danger', 'Group not found.');
+                return;
+            }
+            
+            const groupName = row.cells[0].textContent.trim();
+            const contactCount = row.cells[1].textContent.trim();
+            
+            // Create a mock response with the group details
+            const mockResponse = {
+                success: true,
+                group: {
+                    id: groupId,
+                    name: groupName,
+                    contact_count: contactCount,
+                    description: ''
+                }
+            };
+            
+            // Process the mock response directly
+            const data = mockResponse;
+            
+            if (data.success) {
+                const group = data.group;
+                
+                // Update group details
+                document.getElementById('groupDetailName').textContent = group.name;
+                document.getElementById('groupDetailName').setAttribute('data-group-id', group.id);
+                document.getElementById('groupContactCount').textContent = group.contact_count || 0;
+                document.getElementById('groupMessageCount').textContent = group.message_count || 0;
+                document.getElementById('groupCreatedDate').textContent = formatDate(group.created_at);
+                
+                // Load group contacts
+                loadGroupContacts(group.name);
+                
+                // Scroll to group details section
+                document.getElementById('groupDetailsSection').scrollIntoView({ behavior: 'smooth' });
                 } else {
                     showAlert('danger', data.error || 'Failed to load group details.');
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showAlert('danger', 'An error occurred while loading group details.');
-            });
         }
         
-        function loadGroupContacts(groupId) {
+        function loadGroupContacts(groupName) {
             // Show loading row
             document.getElementById('loadingGroupContactsRow').style.display = 'table-row';
             
-            // Fetch group contacts
-            fetch(`/contacts/groups/${groupId}/contacts`)
+            // Fetch group contacts using the API endpoint
+            fetch(`/contacts/api/list?group=${encodeURIComponent(groupName)}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -938,7 +1158,7 @@
                             const actionsCell = row.insertCell(4);
                             actionsCell.innerHTML = `
                                 <div class="btn-group">
-                                    <button class="btn btn-sm btn-outline-primary" onclick="window.location.href='/contact/edit/${contact.id}'">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="window.location.href='/contacts/edit/${contact.id}'">
                                         <i class="align-middle" data-feather="edit"></i>
                                     </button>
                                     <button class="btn btn-sm btn-outline-danger remove-contact-btn" data-contact-id="${contact.id}">
@@ -968,12 +1188,12 @@
             });
         }
         
-        function loadAvailableContacts(groupId) {
+        function loadAvailableContacts(groupName) {
             // Show loading row
             document.getElementById('loadingAvailableContactsRow').style.display = 'table-row';
             
             // Fetch available contacts
-            fetch(`/contact/api/list?exclude_group=${groupId}`)
+            fetch(`/contacts/api/list?exclude_group=${encodeURIComponent(groupName)}`)
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
@@ -1006,7 +1226,7 @@
                             row.insertCell(1).textContent = contact.name;
                             row.insertCell(2).textContent = contact.phone;
                             row.insertCell(3).textContent = contact.email || '-';
-                            row.insertCell(4).textContent = contact.groups.join(', ') || 'None';
+                            row.insertCell(4).textContent = contact.group || 'None';
                         });
                     } else {
                         const row = tableBody.insertRow();
@@ -1069,6 +1289,54 @@
             
             const date = new Date(dateString);
             return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function confirmDeleteGroup(groupName) {
+            // Set the group name in the modal
+            document.getElementById('deleteGroupName').textContent = groupName;
+            document.getElementById('confirmDeleteGroup').checked = false;
+            document.getElementById('confirmDeleteGroupBtn').disabled = true;
+            
+            // Show delete confirmation modal
+            const deleteModal = document.getElementById('deleteGroupModal');
+            const bsDeleteModal = bootstrap.Modal.getInstance(deleteModal) || new bootstrap.Modal(deleteModal);
+            bsDeleteModal.show();
+            
+            // Set up the confirm delete button to delete the group when clicked
+            document.getElementById('confirmDeleteGroupBtn').onclick = function() {
+                // Send request to delete group
+                fetch('/contacts/api/delete_group', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: groupName })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Close modal and reload groups
+                        const deleteModal = document.getElementById('deleteGroupModal');
+                        const bsDeleteModal = bootstrap.Modal.getInstance(deleteModal) || new bootstrap.Modal(deleteModal);
+                        bsDeleteModal.hide();
+                        loadGroups();
+                        
+                        // Hide group details if the deleted group was being viewed
+                        if (document.getElementById('groupDetailName').textContent === groupName) {
+                            document.getElementById('groupDetailsSection').style.display = 'none';
+                        }
+                        
+                        // Show success message
+                        showAlert('success', 'Group deleted successfully!');
+                    } else {
+                        showAlert('danger', data.error || 'Failed to delete group.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showAlert('danger', 'An error occurred while deleting the group.');
+                });
+            };
         }
         
         function showAlert(type, message) {

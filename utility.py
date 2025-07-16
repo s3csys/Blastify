@@ -13,6 +13,7 @@ from dotenv import load_dotenv, find_dotenv, set_key
 from app import create_app, db
 from app.models.user import User
 from app.models.message import Message
+from app.models.whatsapp_session import WhatsAppSession
 
 app = create_app()
 
@@ -470,12 +471,12 @@ def db_stats():
             pending_messages = Message.query.filter_by(status='pending').count()
             sent_messages = Message.query.filter_by(status='sent').count()
             failed_messages = Message.query.filter_by(status='failed').count()
-            api_credential_count = ApiCredential.query.count()
+            whatsapp_session_count = WhatsAppSession.query.count()
             
             click.echo("\nDatabase Statistics:")
             click.echo("-" * 40)
             click.echo(f"Users: {user_count}")
-            click.echo(f"API Credentials: {api_credential_count}")
+            click.echo(f"WhatsApp Sessions: {whatsapp_session_count}")
             click.echo(f"Total Messages: {message_count}")
             click.echo(f"Pending Messages: {pending_messages}")
             click.echo(f"Sent Messages: {sent_messages}")

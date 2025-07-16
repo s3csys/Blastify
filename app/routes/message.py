@@ -204,12 +204,10 @@ def get_bulk_status(task_id):
 
 
 @bp.route('/connect-messaging', methods=['GET', 'POST'])
+@login_required
 def connect_messaging():
     """Connect to WhatsApp or Telegram messaging services."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -276,6 +274,7 @@ def connect_messaging():
 
 
 @bp.route('/disconnect-service/<service>', methods=['POST'])
+@login_required
 def disconnect_service(service):
     """Disconnect from a messaging service.
     
@@ -285,8 +284,6 @@ def disconnect_service(service):
     Returns:
         Redirect to the connect messaging page
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     try:
         if service == 'whatsapp':
@@ -344,14 +341,13 @@ def clear_whatsapp_flag():
 
 
 @bp.route('/manage-sessions', methods=['POST'])
+@login_required
 def manage_sessions():
     """Manage WhatsApp sessions (create, delete, connect).
     
     Returns:
         Redirect to the connect messaging page
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     action = request.form.get('action')
     service = request.form.get('service')
@@ -369,7 +365,7 @@ def manage_sessions():
                 session_name = f"WhatsApp-{str(uuid.uuid4())[:8]}"
             
             # Create a new session
-            user_id = session.get('user_id')
+            user_id = current_user.id
             result = whatsapp_service.create_session(session_name, user_id=user_id)
             
             if result.get('status') == 'success':
@@ -427,14 +423,13 @@ from flask import jsonify
 
 # Add these new routes
 @bp.route('/generate-whatsapp-qr', methods=['POST'])
+@login_required
 def generate_whatsapp_qr():
     """Generate a QR code for WhatsApp Web authentication.
     
     Returns:
         JSON response with QR code data
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
     
     try:
         session_name = request.form.get('session_name')
@@ -464,14 +459,13 @@ def generate_whatsapp_qr():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/check-whatsapp-connection', methods=['POST'])
+@login_required
 def check_whatsapp_connection():
     """Check if WhatsApp is connected after QR code scan.
     
     Returns:
         JSON response with connection status
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
     
     try:
         session_name = request.form.get('session_name')
@@ -602,14 +596,13 @@ def templates_store():
 
 
 @bp.route('/templates/update', methods=['POST'])
+@login_required
 def templates_update():
     """Update an existing template.
     
     Returns:
         Redirect to templates list
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement template update logic
     flash('Template updated successfully!', 'success')
@@ -618,14 +611,13 @@ def templates_update():
 
 
 @bp.route('/templates/create_category', methods=['POST'])
+@login_required
 def templates_create_category():
     """Create a new template category.
     
     Returns:
         Redirect to templates list
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement category creation logic
     flash('Category created successfully!', 'success')
@@ -634,14 +626,13 @@ def templates_create_category():
 
 
 @bp.route('/templates/store_category', methods=['POST'])
+@login_required
 def templates_store_category():
     """Store a new template category.
     
     Returns:
         Redirect to templates list
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement category storage logic
     flash('Category stored successfully!', 'success')
@@ -650,14 +641,13 @@ def templates_store_category():
 
 
 @bp.route('/templates/update_category', methods=['POST'])
+@login_required
 def templates_update_category():
     """Update an existing template category.
     
     Returns:
         Redirect to templates list
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement category update logic
     flash('Category updated successfully!', 'success')
@@ -666,14 +656,13 @@ def templates_update_category():
 
 
 @bp.route('/templates/delete_category', methods=['POST'])
+@login_required
 def templates_delete_category():
     """Delete a template category.
     
     Returns:
         Redirect to templates list
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement category deletion logic
     flash('Category deleted successfully!', 'success')
@@ -682,14 +671,13 @@ def templates_delete_category():
 
 
 @bp.route('/templates/delete', methods=['POST'])
+@login_required
 def templates_delete():
     """Delete a template.
     
     Returns:
         Redirect to templates list
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement template deletion logic
     flash('Template deleted successfully!', 'success')
@@ -698,14 +686,13 @@ def templates_delete():
 
 
 @bp.route('/templates/get', methods=['GET'])
+@login_required
 def templates_get():
     """Get a template by ID.
     
     Returns:
         JSON response with template data
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
     # This is a placeholder - you'll need to implement template retrieval logic
     template = {'id': request.args.get('id'), 'name': 'Sample Template', 'content': 'Sample content'}
@@ -714,14 +701,13 @@ def templates_get():
 
 
 @bp.route('/templates/get_contact_data', methods=['GET'])
+@login_required
 def templates_get_contact_data():
     """Get contact data for template preview.
     
     Returns:
         JSON response with contact data
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
     # This is a placeholder - you'll need to implement contact data retrieval logic
     contact = {'id': request.args.get('contact_id'), 'name': 'Sample Contact', 'phone': '+1234567890'}
@@ -730,14 +716,13 @@ def templates_get_contact_data():
 
 
 @bp.route('/templates/preview', methods=['GET'])
+@login_required
 def templates_preview():
     """Preview a template with contact data.
     
     Returns:
         JSON response with preview data
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     
     # This is a placeholder - you'll need to implement template preview logic
     preview = {'content': 'Sample preview content'}
@@ -746,6 +731,7 @@ def templates_preview():
 
 
 @bp.route('/templates/media/<int:id>', methods=['GET'])
+@login_required
 def templates_media(id):
     """Get template media.
     
@@ -755,14 +741,13 @@ def templates_media(id):
     Returns:
         Media file response
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement media retrieval logic
     return send_from_directory(current_app.config['UPLOAD_FOLDER'], f'template_{id}_media.jpg')
 
 
-@bp.route('/templates/duplicate/<int:id>', methods=['GET'])
+@bp.route('/templates/duplicate/<int:id>', methods=['POST'])
+@login_required
 def templates_duplicate(id):
     """Duplicate a template.
     
@@ -772,14 +757,139 @@ def templates_duplicate(id):
     Returns:
         Redirect to templates list
     """
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
     
     # This is a placeholder - you'll need to implement template duplication logic
     flash('Template duplicated successfully!', 'success')
     
     return redirect(url_for('message.templates'))
 
+
+@bp.route('/send_to_group', methods=['POST'])
+@login_required
+def send_to_group():
+    """Send a message to all contacts in a group.
+    
+    Returns:
+        JSON response with status of the message send operation
+    """
+    try:
+        data = request.get_json()
+        
+        # Validate request data
+        if not data or 'group_id' not in data or not data['group_id'] or 'content' not in data or not data['content']:
+            return jsonify({'success': False, 'error': 'Group ID and message content are required'}), 400
+        
+        group_name = data['group_id']
+        message_content = data['content']
+        scheduled = data.get('scheduled', False)
+        schedule_time = data.get('schedule_time') if scheduled else None
+        
+        # Get all contacts in the group
+        from app.models.contact import Contact
+        contacts = Contact.query.filter_by(group=group_name).all()
+        
+        if not contacts:
+            return jsonify({'success': False, 'error': f'No contacts found in group {group_name}'}), 404
+        
+        # Create message service based on platform
+        platform = data.get('platform', 'whatsapp').lower()
+        message_service = MessageService.create(platform)
+        
+        # For scheduled messages
+        if scheduled and schedule_time:
+            # Queue messages for later sending
+            from app.tasks.message_tasks import send_bulk_messages_task
+            
+            # Prepare messages list
+            messages = []
+            for contact in contacts:
+                # Replace variables in message content
+                personalized_message = message_content.replace('{name}', contact.name)
+                personalized_message = personalized_message.replace('{phone}', contact.phone)
+                personalized_message = personalized_message.replace('{email}', contact.email or '')
+                personalized_message = personalized_message.replace('{group}', contact.group or '')
+                
+                messages.append({
+                    'recipient': contact.phone,
+                    'message': personalized_message,
+                    'media_url': data.get('media_url')
+                })
+            
+            # Schedule task
+            from datetime import datetime
+            schedule_datetime = datetime.fromisoformat(schedule_time.replace('Z', '+00:00'))
+            
+            # Queue task
+            task = send_bulk_messages_task.apply_async(
+                args=[platform, messages],
+                eta=schedule_datetime
+            )
+            
+            return jsonify({
+                'success': True,
+                'scheduled': True,
+                'task_id': task.id,
+                'schedule_time': schedule_time,
+                'message': f'Message scheduled to be sent to {len(contacts)} contacts in group {group_name}'
+            })
+        
+        # For immediate sending
+        success_count = 0
+        failed_count = 0
+        
+        for contact in contacts:
+            try:
+                # Replace variables in message content
+                personalized_message = message_content.replace('{name}', contact.name)
+                personalized_message = personalized_message.replace('{phone}', contact.phone)
+                personalized_message = personalized_message.replace('{email}', contact.email or '')
+                personalized_message = personalized_message.replace('{group}', contact.group or '')
+                
+                # Send message
+                result = message_service.send_message(
+                    recipient=contact.phone,
+                    message=personalized_message,
+                    media_url=data.get('media_url')
+                )
+                
+                # Save to database
+                message = Message(
+                    platform=platform,
+                    recipient=contact.phone,
+                    message_text=personalized_message,
+                    media_url=data.get('media_url'),
+                    status=result['status']
+                )
+                db.session.add(message)
+                
+                if result['status'] == 'sent':
+                    success_count += 1
+                else:
+                    failed_count += 1
+                    
+            except Exception as e:
+                current_app.logger.error(f"Error sending message to {contact.phone}: {str(e)}")
+                failed_count += 1
+        
+        # Commit all messages to database
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'scheduled': False,
+            'total': len(contacts),
+            'sent': success_count,
+            'failed': failed_count,
+            'message': f'Sent messages to {success_count} contacts in group {group_name}'
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error sending group message: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to send group message',
+            'details': str(e)
+        }), 500
 
 @bp.route('/delete-history', methods=['POST'])
 @login_required

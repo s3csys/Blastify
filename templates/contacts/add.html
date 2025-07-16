@@ -125,30 +125,9 @@ Jane Smith, +9876543210, jane@example.com, Suppliers"></textarea>
     </div>
 </div>
 
-<!-- Result Modal -->
-<div class="modal fade theme-modal" id="resultModal" tabindex="-1" aria-labelledby="resultModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="resultModalLabel">Add Contacts Result</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="resultSummary" class="mb-3">
-                    <!-- Result summary will be displayed here -->
-                </div>
-                <div id="resultDetails">
-                    <!-- Result details will be displayed here -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <a href="{{ url_for('contact.index') }}" class="btn btn-primary">Go to Contacts</a>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- SweetAlert2 will be used for modals and alerts -->
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize Feather icons
@@ -188,10 +167,30 @@ Jane Smith, +9876543210, jane@example.com, Suppliers"></textarea>
             }
         });
         
-        // Clear form button handler
+        // Clear form button handler with confirmation
         document.getElementById('clearFormBtn').addEventListener('click', function() {
-            document.getElementById('addContactForm').reset();
-            document.getElementById('welcomeMessageContainer').style.display = 'none';
+            Swal.fire({
+                title: 'Clear Form?',
+                text: 'Are you sure you want to clear all form fields?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, clear it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    document.getElementById('addContactForm').reset();
+                    document.getElementById('welcomeMessageContainer').style.display = 'none';
+                    Swal.fire({
+                        title: 'Cleared!',
+                        text: 'The form has been cleared.',
+                        icon: 'success',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000
+                    });
+                }
+            });
         });
         
         // Add contact form submit handler
@@ -388,90 +387,177 @@ Jane Smith, +9876543210, jane@example.com, Suppliers"></textarea>
         }
         
         function showResultModal(data) {
-            const resultSummary = document.getElementById('resultSummary');
-            const resultDetails = document.getElementById('resultDetails');
+            // Create a simple message for the toast notification
+            const message = `Added ${data.added} contacts, skipped ${data.skipped} duplicates, failed ${data.failed}`;
             
-            // Create summary
-            resultSummary.innerHTML = `
-                <div class="alert alert-success">
-                    <h6 class="alert-heading">Summary:</h6>
-                    <p class="mb-0">
-                        <strong>${data.added}</strong> contacts added successfully<br>
-                        <strong>${data.skipped}</strong> contacts skipped (duplicates)<br>
-                        <strong>${data.failed}</strong> contacts failed to add
-                    </p>
-                </div>
-            `;
+            // Show a toast notification instead of a modal
+            Swal.fire({
+                title: 'Contacts Added',
+                text: message,
+                icon: 'success',
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
             
-            // Create details
-            let detailsHtml = '';
-            
+            // If there are details to show, we can optionally add a button to view details
             if (data.results && data.results.length > 0) {
-                detailsHtml += '<h6>Details:</h6>';
-                detailsHtml += '<div class="table-responsive">';
-                detailsHtml += '<table class="table table-sm table-striped">';
-                detailsHtml += '<thead><tr><th>Name</th><th>Phone</th><th>Status</th></tr></thead>';
-                detailsHtml += '<tbody>';
+                // Create a "View Details" button that appears after the toast
+                const viewDetailsBtn = document.createElement('button');
+                viewDetailsBtn.className = 'btn btn-sm btn-info mt-3';
+                viewDetailsBtn.innerHTML = '<i class="align-middle" data-feather="info"></i> View Details';
+                viewDetailsBtn.style.position = 'fixed';
+                viewDetailsBtn.style.top = '80px';
+                viewDetailsBtn.style.right = '20px';
+                viewDetailsBtn.style.zIndex = '9999';
                 
-                data.results.forEach(result => {
-                    let statusClass = '';
-                    let statusText = '';
-                    
-                    if (result.status === 'added') {
-                        statusClass = 'success';
-                        statusText = 'Added';
-                    } else if (result.status === 'skipped') {
-                        statusClass = 'warning';
-                        statusText = 'Skipped (Duplicate)';
-                    } else {
-                        statusClass = 'danger';
-                        statusText = `Failed: ${result.error || 'Unknown error'}`;
-                    }
-                    
-                    detailsHtml += `
-                        <tr>
-                            <td>${result.contact.name}</td>
-                            <td>${result.contact.phone}</td>
-                            <td><span class="badge bg-${statusClass}">${statusText}</span></td>
-                        </tr>
+                viewDetailsBtn.addEventListener('click', function() {
+                    // Create summary HTML for the details modal
+                    let summaryHtml = `
+                        <div class="alert alert-success mb-3">
+                            <h6 class="alert-heading">Summary:</h6>
+                            <p class="mb-0">
+                                <strong>${data.added}</strong> contacts added successfully<br>
+                                <strong>${data.skipped}</strong> contacts skipped (duplicates)<br>
+                                <strong>${data.failed}</strong> contacts failed to add
+                            </p>
+                        </div>
                     `;
+                    
+                    // Create details HTML
+                    let detailsHtml = '<h6>Details:</h6>';
+                    detailsHtml += '<div class="table-responsive">';
+                    detailsHtml += '<table class="table table-sm table-striped">';
+                    detailsHtml += '<thead><tr><th>Name</th><th>Phone</th><th>Status</th></tr></thead>';
+                    detailsHtml += '<tbody>';
+                    
+                    data.results.forEach(result => {
+                        let statusClass = '';
+                        let statusText = '';
+                        
+                        if (result.status === 'added') {
+                            statusClass = 'success';
+                            statusText = 'Added';
+                        } else if (result.status === 'skipped') {
+                            statusClass = 'warning';
+                            statusText = 'Skipped (Duplicate)';
+                        } else {
+                            statusClass = 'danger';
+                            statusText = `Failed: ${result.error || 'Unknown error'}`;
+                        }
+                        
+                        detailsHtml += `
+                            <tr>
+                                <td>${result.contact.name}</td>
+                                <td>${result.contact.phone}</td>
+                                <td><span class="badge bg-${statusClass}">${statusText}</span></td>
+                            </tr>
+                        `;
+                    });
+                    
+                    detailsHtml += '</tbody></table></div>';
+                    
+                    // Show a modal with the details
+                    Swal.fire({
+                        title: 'Add Contacts Details',
+                        html: summaryHtml + detailsHtml,
+                        icon: 'info',
+                        width: '800px',
+                        showCloseButton: true,
+                        showCancelButton: true,
+                        confirmButtonText: 'Go to Contacts',
+                        cancelButtonText: 'Close',
+                        customClass: {
+                            container: 'swal-wide',
+                            popup: 'swal-wide',
+                            htmlContainer: 'swal-html-container'
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '{{ url_for("contact.index") }}';
+                        }
+                        // Remove the button when modal is closed
+                        document.body.removeChild(viewDetailsBtn);
+                    });
                 });
                 
-                detailsHtml += '</tbody></table></div>';
+                // Add the button to the body
+                document.body.appendChild(viewDetailsBtn);
+                
+                // Initialize Feather icons for the new button
+                feather.replace();
+                
+                // Auto-remove the button after 10 seconds
+                setTimeout(() => {
+                    if (document.body.contains(viewDetailsBtn)) {
+                        document.body.removeChild(viewDetailsBtn);
+                    }
+                }, 10000);
             }
-            
-            resultDetails.innerHTML = detailsHtml;
-            
-            // Show modal
-            const modal = new bootstrap.Modal(document.getElementById('resultModal'));
-            modal.show();
         }
         
         function showAlert(type, message) {
-            // Create alert element
-            const alertElement = document.createElement('div');
-            alertElement.className = `alert alert-${type} alert-dismissible fade show`;
-            alertElement.setAttribute('role', 'alert');
-            alertElement.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
+            // Map bootstrap alert types to SweetAlert2 types
+            const sweetAlertType = type === 'danger' ? 'error' : 
+                                  type === 'warning' ? 'warning' : 
+                                  type === 'info' ? 'info' : 'success';
             
-            // Add alert to the top of the page
-            const container = document.querySelector('.container-fluid');
-            container.insertBefore(alertElement, container.firstChild);
-            
-            // Auto-dismiss after 5 seconds
-            setTimeout(() => {
-                const bsAlert = new bootstrap.Alert(alertElement);
-                bsAlert.close();
-            }, 5000);
+            // Show SweetAlert2 notification
+            Swal.fire({
+                title: type.charAt(0).toUpperCase() + type.slice(1),
+                text: message,
+                icon: sweetAlertType,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 5000,
+                timerProgressBar: true,
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer)
+                    toast.addEventListener('mouseleave', Swal.resumeTimer)
+                }
+            });
         }
     });
 </script>
 
 <style>
 /* Theme-specific styles for contacts/add.html */
+
+/* SweetAlert2 custom styles */
+.swal-wide {
+    max-width: 800px !important;
+}
+
+.swal-html-container {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Dark theme adjustments for SweetAlert2 */
+body.theme-dark-enterprise .swal2-popup {
+    background-color: var(--dark);
+    color: var(--light);
+}
+
+body.theme-dark-enterprise .swal2-title,
+body.theme-dark-enterprise .swal2-html-container {
+    color: var(--light);
+}
+
+body.theme-dark-enterprise .swal2-styled.swal2-confirm {
+    background-color: var(--primary);
+}
+
+body.theme-dark-enterprise .swal2-styled.swal2-cancel {
+    background-color: var(--secondary);
+}
 
 /* Ensure form has enough padding at bottom for buttons */
 #addContactForm, #addMultipleContactsForm {

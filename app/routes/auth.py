@@ -108,7 +108,8 @@ def two_factor():
             return render_template('auth/two_factor.html')
         
         if user.verify_2fa(token):
-            session['authenticated'] = True
+            # Log in user with Flask-Login
+            login_user(user)
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard.index'))
         else:
@@ -125,12 +126,10 @@ def two_factor():
 #     return redirect(url_for('auth.login'))
 
 @bp.route('/settings', methods=['GET'])
+@login_required
 def settings():
     """User settings page."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -157,12 +156,10 @@ def settings():
     return render_template('settings.html', user=user, qr_code=qr_code)
 
 @bp.route('/settings/update-email', methods=['POST'])
+@login_required
 def update_email():
     """Update user email."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -182,12 +179,10 @@ def update_email():
     return redirect(url_for('auth.settings'))
 
 @bp.route('/settings/change-password', methods=['POST'])
+@login_required
 def change_password():
     """Change user password."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -213,12 +208,10 @@ def change_password():
     return redirect(url_for('auth.settings'))
 
 @bp.route('/settings/enable-2fa', methods=['POST'])
+@login_required
 def enable_2fa():
     """Enable two-factor authentication."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -232,12 +225,10 @@ def enable_2fa():
     return redirect(url_for('auth.settings'))
 
 @bp.route('/settings/verify-2fa', methods=['POST'])
+@login_required
 def verify_2fa():
     """Verify and complete 2FA setup."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -268,12 +259,10 @@ def verify_2fa():
     return redirect(url_for('auth.settings'))
 
 @bp.route('/settings/disable-2fa', methods=['POST'])
+@login_required
 def disable_2fa():
     """Disable two-factor authentication."""
-    if 'user_id' not in session or session.get('authenticated') is not True:
-        return redirect(url_for('auth.login'))
-    
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -379,8 +368,7 @@ def google_callback():
         db.session.add(user)
         db.session.commit()
     
-    # Log in the user
-    session['user_id'] = user.id
-    session['authenticated'] = True
+    # Log in the user with Flask-Login
+    login_user(user)
     flash('Login with Google successful!', 'success')
     return redirect(url_for('dashboard.index'))

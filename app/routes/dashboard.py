@@ -147,7 +147,7 @@ def messages():
     if 'user_id' not in session or session.get('authenticated') is not True:
         return redirect(url_for('auth.login'))
     
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     
@@ -164,7 +164,7 @@ def compose():
     if 'user_id' not in session or session.get('authenticated') is not True:
         return redirect(url_for('auth.login'))
     
-    user = User.query.get(session['user_id'])
+    user = current_user
     if not user:
         return redirect(url_for('auth.login'))
     

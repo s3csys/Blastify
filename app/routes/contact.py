@@ -3,6 +3,7 @@
 import csv
 import io
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from flask import Blueprint, request, jsonify, render_template, current_app, session, redirect, url_for
 from flask_login import login_required, current_user
 from app.models.contact import Contact
@@ -30,7 +31,7 @@ def index():
 def add_page():
     """Add contact page."""
     if request.method == 'GET':
-        user = User.query.get(session['user_id'])
+        user = current_user
         return render_template('contacts/add.html', user=user)
     else:
         try:
@@ -398,10 +399,13 @@ def api_list_contacts():
     
     try:
         group = request.args.get('group')
+        exclude_group = request.args.get('exclude_group')
         
         query = Contact.query
         if group:
             query = query.filter_by(group=group)
+        elif exclude_group:
+            query = query.filter(Contact.group != exclude_group)
             
         contacts = query.order_by(Contact.name).all()
         
@@ -425,7 +429,23 @@ def api_list_groups():
         group_names = [group[0] for group in groups if group[0]]
         
         # Format the response to match what the frontend expects
-        formatted_groups = [{'name': name} for name in group_names]
+        formatted_groups = []
+        for name in group_names:
+            # Get contact count for this group
+            contact_count = Contact.query.filter_by(group=name).count()
+            
+            # Get the most recent contact in this group to use its timestamps
+            most_recent = Contact.query.filter_by(group=name).order_by(Contact.updated_at.desc()).first()
+            created_at = most_recent.created_at if most_recent else None
+            updated_at = most_recent.updated_at if most_recent else None
+            
+            formatted_groups.append({
+                'id': name,  # Using name as ID since we don't have a separate group model
+                'name': name,
+                'contact_count': contact_count,
+                'created_at': created_at.isoformat() if created_at else None,
+                'updated_at': updated_at.isoformat() if updated_at else None
+            })
         
         return jsonify({
             'success': True,
@@ -466,23 +486,31 @@ def bulk_delete_contacts():
 @bp.route('/groups')
 @login_required
 def groups():
-    """Contact groups management page."""
-    user = User.query.get(session['user_id'])
-    
-    # Get unique groups
-    groups = db.session.query(Contact.group).distinct().all()
-    group_names = [group[0] for group in groups if group[0]]
-    
-    # Get contacts count per group
-    group_stats = []
-    for group_name in group_names:
-        count = Contact.query.filter_by(group=group_name).count()
-        group_stats.append({
-            'name': group_name,
-            'count': count
-        })
-    
-    return render_template('contacts/group.html', user=user, groups=group_stats)
+    """Render the groups management page."""
+    try:
+        # Query distinct groups from the Contact model
+        groups_query = db.session.query(Contact.group).distinct().all()
+        # Extract group names from the result tuples and filter out None values
+        group_names = [group[0] for group in groups_query if group[0]]
+        
+        # Get contact counts for each group
+        groups = []
+        for name in group_names:
+            count = Contact.query.filter_by(group=name).count()
+            groups.append({
+                'name': name,
+                'count': count
+            })
+        
+        # Debug log to verify template path and groups data
+        current_app.logger.info(f"Rendering groups template with {len(groups)} groups")
+        current_app.logger.info(f"Groups data: {groups}")
+        
+        # Ensure we're passing the correct template path
+        return render_template('contacts/groups.html', user=current_user, groups=groups)
+    except Exception as e:
+        current_app.logger.error(f"Error loading groups page: {str(e)}")
+        return render_template('contacts/groups.html', user=current_user, groups=[])
 
 @bp.route('/api/add_group', methods=['POST'])
 @login_required
@@ -517,7 +545,21 @@ def api_add_group():
         db.session.delete(dummy_contact)
         db.session.commit()
         
-        return jsonify({'success': True, 'message': 'Group added successfully'})
+        # Format the response to match what the frontend expects
+        # Get the most recent contact in this group to use its timestamps (should be none since we deleted the dummy)
+        most_recent = Contact.query.filter_by(group=group_name).order_by(Contact.updated_at.desc()).first()
+        created_at = datetime.utcnow()
+        updated_at = datetime.utcnow()
+        
+        group_data = {
+            'id': group_name,  # Using name as ID since we don't have a separate group model
+            'name': group_name,
+            'contact_count': 0,
+            'created_at': created_at.isoformat(),
+            'updated_at': updated_at.isoformat()
+        }
+        
+        return jsonify({'success': True, 'message': 'Group added successfully', 'group': group_data})
         
     except Exception as e:
         current_app.logger.error(f"Error adding group: {str(e)}")
@@ -545,4 +587,70 @@ def api_delete_group():
         
     except Exception as e:
         current_app.logger.error(f"Error deleting group: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/api/update_group', methods=['POST'])
+@login_required
+def api_update_group():
+    """API endpoint to update a contact group."""
+    try:
+        data = request.get_json()
+        if not data or 'old_name' not in data or not data['old_name'].strip() or 'new_name' not in data or not data['new_name'].strip():
+            return jsonify({'success': False, 'error': 'Old and new group names are required'}), 400
+        
+        old_name = data['old_name'].strip()
+        new_name = data['new_name'].strip()
+        description = data.get('description', '')
+        
+        # Check if new group name already exists (if different from old name)
+        if old_name != new_name:
+            existing_group = db.session.query(Contact.group).filter(Contact.group == new_name).first()
+            if existing_group:
+                return jsonify({'success': False, 'error': 'Group name already exists'}), 400
+        
+        # Update all contacts in this group
+        contacts = Contact.query.filter_by(group=old_name).all()
+        for contact in contacts:
+            contact.group = new_name
+            if 'description' in data:
+                contact.notes = description
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Group updated successfully'})
+        
+    except Exception as e:
+        current_app.logger.error(f"Error updating group: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@bp.route('/api/add_contacts_to_group', methods=['POST'])
+@login_required
+def api_add_contacts_to_group():
+    """API endpoint to add contacts to a group."""
+    try:
+        data = request.get_json()
+        if not data or 'group_name' not in data or not data['group_name'].strip() or 'contact_ids' not in data or not isinstance(data['contact_ids'], list):
+            return jsonify({'success': False, 'error': 'Group name and contact IDs are required'}), 400
+        
+        group_name = data['group_name'].strip()
+        contact_ids = data['contact_ids']
+        
+        # Update contacts with the new group
+        updated_count = 0
+        for contact_id in contact_ids:
+            contact = Contact.query.get(contact_id)
+            if contact:
+                contact.group = group_name
+                updated_count += 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': f'{updated_count} contacts added to group successfully',
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error adding contacts to group: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
