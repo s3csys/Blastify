@@ -193,110 +193,85 @@
                 console.log('QR code generation response:', data); // Debug log
                 
                 if (data.success) {
-                    // Hide instructions and show QR code
-                    initialInstructions.classList.add('d-none');
+                    // Redirect to the QR scan page
+                    window.location.href = data.scan_url;
+                } else if (data.qr_code) {
+                    // Show QR code container and hide initial instructions
                     qrCodeContainer.classList.remove('d-none');
+                    initialInstructions.classList.add('d-none');
                     
-                    // Display QR code
+                    // Create a container for the QR code with a border
+                    const qrContainer = document.createElement('div');
+                    qrContainer.className = 'qr-code-wrapper';
+                    qrContainer.style.border = '1px solid #ddd';
+                    qrContainer.style.borderRadius = '8px';
+                    qrContainer.style.padding = '10px';
+                    qrContainer.style.backgroundColor = '#fff';
+                    qrContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    qrContainer.style.position = 'relative';
+                    
+                    // It's already an image, display it directly
+                    const qrImage = document.createElement('img');
+                    qrImage.src = data.qr_code;
+                    qrImage.width = 256;
+                    qrImage.height = 256;
+                    qrImage.alt = 'WhatsApp QR Code';
+                    qrImage.style.borderRadius = '4px';
+                    qrImage.id = 'qrCodeImage';
+                    qrContainer.appendChild(qrImage);
+                    
+                    // Add a timer overlay
+                    const timerOverlay = document.createElement('div');
+                    timerOverlay.className = 'qr-timer';
+                    timerOverlay.style.position = 'absolute';
+                    timerOverlay.style.top = '5px';
+                    timerOverlay.style.right = '5px';
+                    timerOverlay.style.backgroundColor = 'rgba(0,0,0,0.6)';
+                    timerOverlay.style.color = 'white';
+                    timerOverlay.style.padding = '4px 8px';
+                    timerOverlay.style.borderRadius = '12px';
+                    timerOverlay.style.fontSize = '12px';
+                    timerOverlay.style.fontWeight = 'bold';
+                    timerOverlay.innerHTML = '2:00';
+                    timerOverlay.id = 'qrTimer';
+                    qrContainer.appendChild(timerOverlay);
+                    
                     qrCodeElement.innerHTML = '';
+                    qrCodeElement.appendChild(qrContainer);
                     
-                    // Check if the qr_code is a data URL (starts with 'data:')
-                    if (data.qr_code && data.qr_code.startsWith('data:')) {
-                        // Create a container for the QR code with a border
-                        const qrContainer = document.createElement('div');
-                        qrContainer.className = 'qr-code-wrapper';
-                        qrContainer.style.border = '1px solid #ddd';
-                        qrContainer.style.borderRadius = '8px';
-                        qrContainer.style.padding = '10px';
-                        qrContainer.style.backgroundColor = '#fff';
-                        qrContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                        qrContainer.style.position = 'relative';
-                        
-                        // It's already an image, display it directly
-                        const qrImage = document.createElement('img');
-                        qrImage.src = data.qr_code;
-                        qrImage.width = 256;
-                        qrImage.height = 256;
-                        qrImage.alt = 'WhatsApp QR Code';
-                        qrImage.style.borderRadius = '4px';
-                        qrImage.id = 'qrCodeImage';
-                        qrContainer.appendChild(qrImage);
-                        
-                        // Add a timer overlay
-                        const timerOverlay = document.createElement('div');
-                        timerOverlay.className = 'qr-timer';
-                        timerOverlay.style.position = 'absolute';
-                        timerOverlay.style.top = '5px';
-                        timerOverlay.style.right = '5px';
-                        timerOverlay.style.backgroundColor = 'rgba(0,0,0,0.6)';
-                        timerOverlay.style.color = 'white';
-                        timerOverlay.style.padding = '4px 8px';
-                        timerOverlay.style.borderRadius = '12px';
-                        timerOverlay.style.fontSize = '12px';
-                        timerOverlay.style.fontWeight = 'bold';
-                        timerOverlay.innerHTML = '2:00';
-                        timerOverlay.id = 'qrTimer';
-                        qrContainer.appendChild(timerOverlay);
-                        
-                        qrCodeElement.appendChild(qrContainer);
-                        
-                        // Add buttons for the QR code
-                        const buttonsContainer = document.createElement('div');
-                        buttonsContainer.className = 'mt-3 d-flex gap-2 justify-content-center';
-                        
-                        // Download button
-                        const downloadBtn = document.createElement('a');
-                        downloadBtn.className = 'btn btn-sm btn-primary';
-                        downloadBtn.innerHTML = '<i class="align-middle" data-feather="download"></i> Download';
-                        downloadBtn.href = `/whatsapp/download-qr-code/${data.session_id}`;
-                        downloadBtn.target = '_blank';
-                        
-                        // Open in new tab button
-                        const openBtn = document.createElement('a');
-                        openBtn.className = 'btn btn-sm btn-secondary';
-                        openBtn.innerHTML = '<i class="align-middle" data-feather="external-link"></i> Open in New Tab';
-                        openBtn.href = `/whatsapp/display-qr-code/${data.session_id}`;
-                        openBtn.target = '_blank';
-                        
-                        // Refresh QR code button
-                        const refreshBtn = document.createElement('button');
-                        refreshBtn.className = 'btn btn-sm btn-outline-info';
-                        refreshBtn.innerHTML = '<i class="align-middle" data-feather="refresh-cw"></i> Refresh QR';
-                        refreshBtn.type = 'button';
-                        refreshBtn.id = 'refreshQrBtn';
-                        refreshBtn.onclick = function() { refreshQrCode(data.session_id); };
-                        
-                        buttonsContainer.appendChild(downloadBtn);
-                        buttonsContainer.appendChild(openBtn);
-                        buttonsContainer.appendChild(refreshBtn);
-                        qrCodeElement.appendChild(buttonsContainer);
-                        
-                        // Replace feather icons
-                        feather.replace();
-                    } else if (data.qr_code) {
-                        // It's text, generate QR code from it
-                        new QRCode(qrCodeElement, {
-                            text: data.qr_code,
-                            width: 256,
-                            height: 256
-                        });
-                    } else {
-                        // No QR code in response
-                        connectionStatus.innerHTML = `
-                            <div class="alert alert-danger" role="alert">
-                                <i class="align-middle" data-feather="alert-circle"></i>
-                                No QR code received from server.
-                            </div>
-                            <div class="d-grid gap-2 mt-3">
-                                <button type="button" class="btn btn-primary" onclick="location.reload()">
-                                    Try Again
-                                </button>
-                            </div>
-                        `;
-                        feather.replace();
-                        resetGenerateButton();
-                        return;
-                    }
+                    // Add buttons for the QR code
+                    const buttonsContainer = document.createElement('div');
+                    buttonsContainer.className = 'mt-3 d-flex gap-2 justify-content-center';
+                    
+                    // Download button
+                    const downloadBtn = document.createElement('a');
+                    downloadBtn.className = 'btn btn-sm btn-primary';
+                    downloadBtn.innerHTML = '<i class="align-middle" data-feather="download"></i> Download';
+                    downloadBtn.href = `/whatsapp/download-qr-code/${data.session_id}`;
+                    downloadBtn.target = '_blank';
+                    
+                    // Open in new tab button
+                    const openBtn = document.createElement('a');
+                    openBtn.className = 'btn btn-sm btn-secondary';
+                    openBtn.innerHTML = '<i class="align-middle" data-feather="external-link"></i> Open in New Tab';
+                    openBtn.href = `/whatsapp/display-qr-code/${data.session_id}`;
+                    openBtn.target = '_blank';
+                    
+                    // Refresh QR code button
+                    const refreshBtn = document.createElement('button');
+                    refreshBtn.className = 'btn btn-sm btn-outline-info';
+                    refreshBtn.innerHTML = '<i class="align-middle" data-feather="refresh-cw"></i> Refresh QR';
+                    refreshBtn.type = 'button';
+                    refreshBtn.id = 'refreshQrBtn';
+                    refreshBtn.onclick = function() { refreshQrCode(data.session_id); };
+                    
+                    buttonsContainer.appendChild(downloadBtn);
+                    buttonsContainer.appendChild(openBtn);
+                    buttonsContainer.appendChild(refreshBtn);
+                    qrCodeElement.appendChild(buttonsContainer);
+                    
+                    // Replace feather icons
+                    feather.replace();
                     
                     // Start checking connection status
                     if (data.session_id) {
@@ -317,8 +292,21 @@
                         resetGenerateButton();
                     }
                 } else {
-                    alert('Error: ' + (data.error || 'Failed to generate QR code'));
+                    // No QR code in response
+                    connectionStatus.innerHTML = `
+                        <div class="alert alert-danger" role="alert">
+                            <i class="align-middle" data-feather="alert-circle"></i>
+                            No QR code received from server.
+                        </div>
+                        <div class="d-grid gap-2 mt-3">
+                            <button type="button" class="btn btn-primary" onclick="location.reload()">
+                                Try Again
+                            </button>
+                        </div>
+                    `;
+                    feather.replace();
                     resetGenerateButton();
+                    alert('Error: ' + (data.error || 'Failed to generate QR code'));
                 }
             })
             .catch(error => {
@@ -636,5 +624,7 @@
             }, 3000); // Check every 3 seconds
         }
     });
+
+// Note: Form submission is already handled by the addEventListener above
 </script>
 {% endblock %}

@@ -158,8 +158,18 @@ Jane Smith,+0987654321,jane@example.com,suppliers,</pre>
     </div>
 </div>
 
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize SweetAlert2
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
         // Apply theme adjustments
         if (typeof applyThemeAdjustments === 'function') {
             applyThemeAdjustments();
@@ -186,7 +196,11 @@ Jane Smith,+0987654321,jane@example.com,suppliers,</pre>
             
             const fileInput = document.getElementById('fileInput');
             if (!fileInput.files.length) {
-                alert('Please select a file to import.');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No File Selected',
+                    text: 'Please select a file to import.'
+                });
                 return;
             }
             

@@ -26,7 +26,7 @@
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <form id="whatsappConnectForm" method="POST" action="{{ url_for('whatsapp_web.connect_device') }}">
+                            <form id="whatsappConnectForm">
                                 <div class="mb-3">
                                     <label for="deviceName" class="form-label">Device Name</label>
                                     <input type="text" class="form-control" id="deviceName" name="device_name" required placeholder="e.g. My Business Phone">
@@ -99,6 +99,12 @@
 {% endblock %}
 
 {% block javascript %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<!-- WhatsApp JS -->
+<script src="{{ url_for('static', filename='js/modules/whatsapp/whatsapp.js') }}"></script>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const sessionSelect = document.getElementById('sessionName');
@@ -121,6 +127,19 @@
                     option.textContent = "No sessions available";
                     sessionSelect.appendChild(option);
                     document.querySelector('button[type="submit"]').disabled = true;
+                    
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'No Sessions Available',
+                        text: 'You need to generate a QR code and scan it with your phone first.',
+                        confirmButtonText: 'Generate QR Code',
+                        showCancelButton: true,
+                        cancelButtonText: 'Cancel'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = "{{ url_for('whatsapp_web.generate_qr_page') }}";
+                        }
+                    });
                 }
             })
             .catch(error => {
@@ -130,26 +149,41 @@
                 option.textContent = "Error loading sessions";
                 sessionSelect.appendChild(option);
                 document.querySelector('button[type="submit"]').disabled = true;
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Failed to load WhatsApp sessions. Please try again later.'
+                });
             });
         
-        // Form validation
+        // Form validation and submission
         connectForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
             const deviceName = document.getElementById('deviceName').value.trim();
             const sessionName = sessionSelect.value;
             
             if (!deviceName) {
-                event.preventDefault();
-                alert('Please enter a device name');
-                return false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Please enter a device name'
+                });
+                return;
             }
             
             if (!sessionName) {
-                event.preventDefault();
-                alert('Please select a session');
-                return false;
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Please select a session'
+                });
+                return;
             }
             
-            return true;
+            // Call the connectDevice function from whatsapp.js
+            connectDevice(deviceName, sessionName);
         });
     });
 </script>

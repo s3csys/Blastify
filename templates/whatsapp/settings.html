@@ -25,7 +25,7 @@
                     <h5 class="card-title">General Settings</h5>
                 </div>
                 <div class="card-body">
-                    <form id="generalSettingsForm" method="POST" action="{{ url_for('whatsapp_web.update_settings') }}">
+                    <form id="generalSettingsForm">
                         <input type="hidden" name="settings_type" value="general">
                         
                         <div class="mb-3">
@@ -83,7 +83,7 @@
                     <h5 class="card-title">Notification Settings</h5>
                 </div>
                 <div class="card-body">
-                    <form id="notificationSettingsForm" method="POST" action="{{ url_for('whatsapp_web.update_settings') }}">
+                    <form id="notificationSettingsForm">
                         <input type="hidden" name="settings_type" value="notification">
                         
                         <div class="mb-3">
@@ -146,7 +146,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">Auto-Reply Settings</h5>
                     <div>
-                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addAutoReplyModal">
+                        <button type="button" class="btn btn-sm btn-primary" id="addAutoReplyBtn">
                             <i class="align-middle" data-feather="plus"></i> Add Auto-Reply
                         </button>
                     </div>
@@ -179,11 +179,11 @@
                                     <td>{{ reply.name }}</td>
                                     <td>
                                         {% if reply.trigger_type == 'keyword' %}
-                                        Keyword
+                                        <span class="badge bg-primary trigger-badge">Keyword</span>
                                         {% elif reply.trigger_type == 'away' %}
-                                        Away Message
+                                        <span class="badge bg-warning trigger-badge">Away Message</span>
                                         {% elif reply.trigger_type == 'welcome' %}
-                                        Welcome Message
+                                        <span class="badge bg-info trigger-badge">Welcome Message</span>
                                         {% endif %}
                                     </td>
                                     <td>
@@ -206,13 +206,13 @@
                                     <td>
                                         <div class="btn-group">
                                             <button type="button" class="btn btn-sm btn-info dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                                                Actions
+                                                <i class="align-middle" data-feather="more-vertical"></i>
                                             </button>
                                             <ul class="dropdown-menu">
-                                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#editAutoReplyModal{{ reply.id }}">Edit</a></li>
-                                                <li><a class="dropdown-item" href="#" onclick="toggleAutoReplyStatus({{ reply.id }}, {{ reply.is_active|int }})">{% if reply.is_active %}Deactivate{% else %}Activate{% endif %}</a></li>
+                                                <li><a class="dropdown-item edit-auto-reply" href="#" data-id="{{ reply.id }}">Edit</a></li>
+                                                <li><a class="dropdown-item toggle-auto-reply" href="#" data-id="{{ reply.id }}" data-active="{{ reply.is_active|int }}">{% if reply.is_active %}Deactivate{% else %}Activate{% endif %}</a></li>
                                                 <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#deleteAutoReplyModal{{ reply.id }}">Delete</a></li>
+                                                <li><a class="dropdown-item text-danger delete-auto-reply" href="#" data-id="{{ reply.id }}" data-name="{{ reply.name }}">Delete</a></li>
                                             </ul>
                                         </div>
                                     </td>
@@ -228,7 +228,7 @@
                         </div>
                         <h4>No Auto-Replies Configured</h4>
                         <p class="text-muted">Create auto-replies to automatically respond to incoming messages.</p>
-                        <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#addAutoReplyModal">
+                        <button type="button" class="btn btn-primary mt-2" id="addFirstAutoReplyBtn">
                             <i class="align-middle" data-feather="plus"></i> Add Your First Auto-Reply
                         </button>
                     </div>
@@ -238,110 +238,146 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
-<!-- Add Auto-Reply Modal -->
-<div class="modal fade" id="addAutoReplyModal" tabindex="-1" aria-labelledby="addAutoReplyModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addAutoReplyModalLabel">Add Auto-Reply</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="addAutoReplyForm" method="POST" action="{{ url_for('whatsapp_web.add_auto_reply') }}">
-                    <div class="mb-3">
-                        <label for="replyName" class="form-label">Name</label>
-                        <input type="text" class="form-control" id="replyName" name="name" required placeholder="e.g. Welcome Message">
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="triggerType" class="form-label">Trigger Type</label>
-                        <select class="form-select" id="triggerType" name="trigger_type" required>
-                            <option value="" selected disabled>Select trigger type</option>
-                            <option value="keyword">Keyword</option>
-                            <option value="welcome">Welcome Message (New Conversation)</option>
-                            <option value="away">Away Message (No Response)</option>
-                        </select>
-                    </div>
-                    
-                    <div id="keywordFields" class="mb-3 d-none">
-                        <label for="triggerKeyword" class="form-label">Trigger Keyword</label>
-                        <input type="text" class="form-control" id="triggerKeyword" name="trigger_keyword" placeholder="e.g. help, info, hours">
-                        <div class="form-text">Comma-separated keywords that will trigger this auto-reply.</div>
-                    </div>
-                    
-                    <div id="awayFields" class="mb-3 d-none">
-                        <label for="awayTimeout" class="form-label">Away Timeout (hours)</label>
-                        <input type="number" class="form-control" id="awayTimeout" name="away_timeout" min="1" max="72" value="24">
-                        <div class="form-text">Send this message when there's no response for this many hours.</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="responseMessage" class="form-label">Response Message</label>
-                        <textarea class="form-control" id="responseMessage" name="response" rows="5" required placeholder="Enter your auto-reply message here..."></textarea>
-                        <div class="form-text">
-                            You can use these variables in your message:
-                            <code>{first_name}</code>, <code>{last_name}</code>, <code>{phone}</code>, <code>{date}</code>, <code>{time}</code>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="isActive" name="is_active" checked>
-                            <label class="form-check-label" for="isActive">Active</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" form="addAutoReplyForm" class="btn btn-primary">Save Auto-Reply</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% block javascript %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-<!-- Edit Auto-Reply Modals would be generated for each auto-reply -->
-{% if auto_replies %}
-    {% for reply in auto_replies %}
-    <div class="modal fade" id="editAutoReplyModal{{ reply.id }}" tabindex="-1" aria-labelledby="editAutoReplyModalLabel{{ reply.id }}" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editAutoReplyModalLabel{{ reply.id }}">Edit Auto-Reply</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editAutoReplyForm{{ reply.id }}" method="POST" action="{{ url_for('whatsapp_web.update_auto_reply', reply_id=reply.id) }}">
+<!-- WhatsApp JS -->
+<script src="{{ url_for('static', filename='js/modules/whatsapp/whatsapp.js') }}"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Initialize SweetAlert2 with theme
+        initSweetAlert2Theme();
+        
+        // Handle trigger type change for new auto-reply
+        let triggerType, keywordFields, awayFields;
+        
+        // Handle general settings form submission
+        const generalSettingsForm = document.getElementById('generalSettingsForm');
+        if (generalSettingsForm) {
+            generalSettingsForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const formData = new FormData(generalSettingsForm);
+                
+                fetch('{{ url_for("whatsapp_web.update_settings") }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Settings Saved',
+                            text: 'General settings have been updated successfully.'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.error || 'Failed to update settings'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving settings:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'An error occurred while saving settings. Please try again.'
+                    });
+                });
+            });
+        }
+        
+        // Handle notification settings form submission
+        const notificationSettingsForm = document.getElementById('notificationSettingsForm');
+        if (notificationSettingsForm) {
+            notificationSettingsForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+                const formData = new FormData(notificationSettingsForm);
+                
+                fetch('{{ url_for("whatsapp_web.update_settings") }}', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Settings Saved',
+                            text: 'Notification settings have been updated successfully.'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.error || 'Failed to update settings'
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving settings:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'An error occurred while saving settings. Please try again.'
+                    });
+                });
+            });
+        }
+        
+        // Toggle auto-replies status
+        const enableAutoReplies = document.getElementById('enableAutoReplies');
+        if (enableAutoReplies) {
+            enableAutoReplies.addEventListener('change', function() {
+                toggleAutoReplyStatus('all', this.checked ? 1 : 0);
+            });
+        }
+        
+        // Add auto-reply button
+        const addAutoReplyBtn = document.getElementById('addAutoReplyBtn');
+        const addFirstAutoReplyBtn = document.getElementById('addFirstAutoReplyBtn');
+        
+        function showAddAutoReplyModal() {
+            Swal.fire({
+                title: 'Add Auto-Reply',
+                html: `
+                    <form id="swalAddAutoReplyForm" class="text-start">
                         <div class="mb-3">
-                            <label for="editReplyName{{ reply.id }}" class="form-label">Name</label>
-                            <input type="text" class="form-control" id="editReplyName{{ reply.id }}" name="name" required value="{{ reply.name }}">
+                            <label for="replyName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="replyName" name="name" required placeholder="e.g. Welcome Message">
                         </div>
                         
                         <div class="mb-3">
-                            <label for="editTriggerType{{ reply.id }}" class="form-label">Trigger Type</label>
-                            <select class="form-select" id="editTriggerType{{ reply.id }}" name="trigger_type" required>
-                                <option value="keyword" {% if reply.trigger_type == 'keyword' %}selected{% endif %}>Keyword</option>
-                                <option value="welcome" {% if reply.trigger_type == 'welcome' %}selected{% endif %}>Welcome Message (New Conversation)</option>
-                                <option value="away" {% if reply.trigger_type == 'away' %}selected{% endif %}>Away Message (No Response)</option>
+                            <label for="triggerType" class="form-label">Trigger Type</label>
+                            <select class="form-select" id="triggerType" name="trigger_type" required>
+                                <option value="" selected disabled>Select trigger type</option>
+                                <option value="keyword">Keyword</option>
+                                <option value="welcome">Welcome Message (New Conversation)</option>
+                                <option value="away">Away Message (No Response)</option>
                             </select>
                         </div>
                         
-                        <div id="editKeywordFields{{ reply.id }}" class="mb-3 {% if reply.trigger_type != 'keyword' %}d-none{% endif %}">
-                            <label for="editTriggerKeyword{{ reply.id }}" class="form-label">Trigger Keyword</label>
-                            <input type="text" class="form-control" id="editTriggerKeyword{{ reply.id }}" name="trigger_keyword" value="{{ reply.trigger_keyword }}">
+                        <div id="keywordFields" class="mb-3 d-none">
+                            <label for="triggerKeyword" class="form-label">Trigger Keyword</label>
+                            <input type="text" class="form-control" id="triggerKeyword" name="trigger_keyword" placeholder="e.g. help, info, hours">
                             <div class="form-text">Comma-separated keywords that will trigger this auto-reply.</div>
                         </div>
                         
-                        <div id="editAwayFields{{ reply.id }}" class="mb-3 {% if reply.trigger_type != 'away' %}d-none{% endif %}">
-                            <label for="editAwayTimeout{{ reply.id }}" class="form-label">Away Timeout (hours)</label>
-                            <input type="number" class="form-control" id="editAwayTimeout{{ reply.id }}" name="away_timeout" min="1" max="72" value="{{ reply.away_timeout|default(24) }}">
+                        <div id="awayFields" class="mb-3 d-none">
+                            <label for="awayTimeout" class="form-label">Away Timeout (hours)</label>
+                            <input type="number" class="form-control" id="awayTimeout" name="away_timeout" min="1" max="72" value="24">
                             <div class="form-text">Send this message when there's no response for this many hours.</div>
                         </div>
                         
                         <div class="mb-3">
-                            <label for="editResponseMessage{{ reply.id }}" class="form-label">Response Message</label>
-                            <textarea class="form-control" id="editResponseMessage{{ reply.id }}" name="response" rows="5" required>{{ reply.response }}</textarea>
+                            <label for="responseMessage" class="form-label">Response Message</label>
+                            <textarea class="form-control" id="responseMessage" name="response" rows="5" required placeholder="Enter your auto-reply message here..."></textarea>
                             <div class="form-text">
                                 You can use these variables in your message:
                                 <code>{first_name}</code>, <code>{last_name}</code>, <code>{phone}</code>, <code>{date}</code>, <code>{time}</code>
@@ -350,100 +386,311 @@
                         
                         <div class="mb-3">
                             <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="editIsActive{{ reply.id }}" name="is_active" {% if reply.is_active %}checked{% endif %}>
-                                <label class="form-check-label" for="editIsActive{{ reply.id }}">Active</label>
+                                <input class="form-check-input" type="checkbox" id="isActive" name="is_active" checked>
+                                <label class="form-check-label" for="isActive">Active</label>
                             </div>
                         </div>
                     </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" form="editAutoReplyForm{{ reply.id }}" class="btn btn-primary">Update Auto-Reply</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Delete Auto-Reply Modal -->
-    <div class="modal fade" id="deleteAutoReplyModal{{ reply.id }}" tabindex="-1" aria-labelledby="deleteAutoReplyModalLabel{{ reply.id }}" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteAutoReplyModalLabel{{ reply.id }}">Delete Auto-Reply</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete the auto-reply <strong>"{{ reply.name }}"</strong>?</p>
-                    <div class="alert alert-warning">
-                        <i class="align-middle" data-feather="alert-triangle"></i>
-                        This action cannot be undone.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <form action="{{ url_for('whatsapp_web.delete_auto_reply', reply_id=reply.id) }}" method="POST">
-                        <button type="submit" class="btn btn-danger">Delete</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
-{% endif %}
-{% endblock %}
-
-{% block javascript %}
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // Handle trigger type change for new auto-reply
-        const triggerType = document.getElementById('triggerType');
-        const keywordFields = document.getElementById('keywordFields');
-        const awayFields = document.getElementById('awayFields');
-        
-        if (triggerType) {
-            triggerType.addEventListener('change', function() {
-                if (this.value === 'keyword') {
-                    keywordFields.classList.remove('d-none');
-                    awayFields.classList.add('d-none');
-                } else if (this.value === 'away') {
-                    keywordFields.classList.add('d-none');
-                    awayFields.classList.remove('d-none');
-                } else {
-                    keywordFields.classList.add('d-none');
-                    awayFields.classList.add('d-none');
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Save Auto-Reply',
+                cancelButtonText: 'Cancel',
+                didOpen: () => {
+                    // Handle trigger type change
+                    triggerType = document.getElementById('triggerType');
+                    keywordFields = document.getElementById('keywordFields');
+                    awayFields = document.getElementById('awayFields');
+                    
+                    if (triggerType) {
+                        triggerType.addEventListener('change', function() {
+                            if (this.value === 'keyword') {
+                                keywordFields.classList.remove('d-none');
+                                awayFields.classList.add('d-none');
+                            } else if (this.value === 'away') {
+                                keywordFields.classList.add('d-none');
+                                awayFields.classList.remove('d-none');
+                            } else {
+                                keywordFields.classList.add('d-none');
+                                awayFields.classList.add('d-none');
+                            }
+                        });
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.getElementById('swalAddAutoReplyForm');
+                    const formData = new FormData(form);
+                    
+                    fetch('{{ url_for("whatsapp_web.add_auto_reply") }}', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Auto-Reply Added',
+                                text: 'The auto-reply has been added successfully.',
+                                confirmButtonText: 'OK'
+                            }).then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.error || 'Failed to add auto-reply'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error adding auto-reply:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'An error occurred while adding the auto-reply. Please try again.'
+                        });
+                    });
                 }
             });
         }
         
-        // Handle trigger type change for edit auto-reply modals
-        {% if auto_replies %}
-            {% for reply in auto_replies %}
-            const editTriggerType{{ reply.id }} = document.getElementById('editTriggerType{{ reply.id }}');
-            const editKeywordFields{{ reply.id }} = document.getElementById('editKeywordFields{{ reply.id }}');
-            const editAwayFields{{ reply.id }} = document.getElementById('editAwayFields{{ reply.id }}');
-            
-            if (editTriggerType{{ reply.id }}) {
-                editTriggerType{{ reply.id }}.addEventListener('change', function() {
-                    if (this.value === 'keyword') {
-                        editKeywordFields{{ reply.id }}.classList.remove('d-none');
-                        editAwayFields{{ reply.id }}.classList.add('d-none');
-                    } else if (this.value === 'away') {
-                        editKeywordFields{{ reply.id }}.classList.add('d-none');
-                        editAwayFields{{ reply.id }}.classList.remove('d-none');
-                    } else {
-                        editKeywordFields{{ reply.id }}.classList.add('d-none');
-                        editAwayFields{{ reply.id }}.classList.add('d-none');
+        if (addAutoReplyBtn) {
+            addAutoReplyBtn.addEventListener('click', showAddAutoReplyModal);
+        }
+        
+        if (addFirstAutoReplyBtn) {
+            addFirstAutoReplyBtn.addEventListener('click', showAddAutoReplyModal);
+        }
+        
+        // Edit auto-reply
+        const editAutoReplyBtns = document.querySelectorAll('.edit-auto-reply');
+        editAutoReplyBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const replyId = this.getAttribute('data-id');
+                
+                // Fetch auto-reply data
+                fetch(`/api/auto-reply/${replyId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const reply = data.auto_reply;
+                            
+                            Swal.fire({
+                                title: 'Edit Auto-Reply',
+                                html: `
+                                    <form id="swalEditAutoReplyForm" class="text-start">
+                                        <div class="mb-3">
+                                            <label for="editReplyName" class="form-label">Name</label>
+                                            <input type="text" class="form-control" id="editReplyName" name="name" required value="${reply.name}">
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="editTriggerType" class="form-label">Trigger Type</label>
+                                            <select class="form-select" id="editTriggerType" name="trigger_type" required>
+                                                <option value="keyword" ${reply.trigger_type === 'keyword' ? 'selected' : ''}>Keyword</option>
+                                                <option value="welcome" ${reply.trigger_type === 'welcome' ? 'selected' : ''}>Welcome Message (New Conversation)</option>
+                                                <option value="away" ${reply.trigger_type === 'away' ? 'selected' : ''}>Away Message (No Response)</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div id="editKeywordFields" class="mb-3 ${reply.trigger_type !== 'keyword' ? 'd-none' : ''}">
+                                            <label for="editTriggerKeyword" class="form-label">Trigger Keyword</label>
+                                            <input type="text" class="form-control" id="editTriggerKeyword" name="trigger_keyword" value="${reply.trigger_keyword || ''}">
+                                            <div class="form-text">Comma-separated keywords that will trigger this auto-reply.</div>
+                                        </div>
+                                        
+                                        <div id="editAwayFields" class="mb-3 ${reply.trigger_type !== 'away' ? 'd-none' : ''}">
+                                            <label for="editAwayTimeout" class="form-label">Away Timeout (hours)</label>
+                                            <input type="number" class="form-control" id="editAwayTimeout" name="away_timeout" min="1" max="72" value="${reply.away_timeout || 24}">
+                                            <div class="form-text">Send this message when there's no response for this many hours.</div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="editResponseMessage" class="form-label">Response Message</label>
+                                            <textarea class="form-control" id="editResponseMessage" name="response" rows="5" required>${reply.response}</textarea>
+                                            <div class="form-text">
+                                                You can use these variables in your message:
+                                                <code>{first_name}</code>, <code>{last_name}</code>, <code>{phone}</code>, <code>{date}</code>, <code>{time}</code>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="editIsActive" name="is_active" ${reply.is_active ? 'checked' : ''}>
+                                                <label class="form-check-label" for="editIsActive">Active</label>
+                                            </div>
+                                        </div>
+                                    </form>
+                                `,
+                                showCancelButton: true,
+                                confirmButtonText: 'Update Auto-Reply',
+                                cancelButtonText: 'Cancel',
+                                didOpen: () => {
+                                    // Handle trigger type change
+                                    const editTriggerType = document.getElementById('editTriggerType');
+                                    const editKeywordFields = document.getElementById('editKeywordFields');
+                                    const editAwayFields = document.getElementById('editAwayFields');
+                                    
+                                    if (editTriggerType) {
+                                        editTriggerType.addEventListener('change', function() {
+                                            if (this.value === 'keyword') {
+                                                editKeywordFields.classList.remove('d-none');
+                                                editAwayFields.classList.add('d-none');
+                                            } else if (this.value === 'away') {
+                                                editKeywordFields.classList.add('d-none');
+                                                editAwayFields.classList.remove('d-none');
+                                            } else {
+                                                editKeywordFields.classList.add('d-none');
+                                                editAwayFields.classList.add('d-none');
+                                            }
+                                        });
+                                    }
+                                }
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    const form = document.getElementById('swalEditAutoReplyForm');
+                                    const formData = new FormData(form);
+                                    
+                                    fetch(`/whatsapp/update-auto-reply/${replyId}`, {
+                                        method: 'POST',
+                                        body: formData
+                                    })
+                                    .then(response => response.json())
+                                    .then(data => {
+                                        if (data.success) {
+                                            Swal.fire({
+                                                icon: 'success',
+                                                title: 'Auto-Reply Updated',
+                                                text: 'The auto-reply has been updated successfully.',
+                                                confirmButtonText: 'OK'
+                                            }).then(() => {
+                                                window.location.reload();
+                                            });
+                                        } else {
+                                            Swal.fire({
+                                                icon: 'error',
+                                                title: 'Error',
+                                                text: data.error || 'Failed to update auto-reply'
+                                            });
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error('Error updating auto-reply:', error);
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Error',
+                                            text: 'An error occurred while updating the auto-reply. Please try again.'
+                                        });
+                                    });
+                                }
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.error || 'Failed to load auto-reply data'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading auto-reply data:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'An error occurred while loading the auto-reply data. Please try again.'
+                        });
+                    });
+            });
+        });
+        
+        // Toggle individual auto-reply status
+        const toggleAutoReplyBtns = document.querySelectorAll('.toggle-auto-reply');
+        toggleAutoReplyBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const replyId = this.getAttribute('data-id');
+                const currentStatus = parseInt(this.getAttribute('data-active'));
+                const newStatus = currentStatus === 1 ? 0 : 1;
+                const statusText = newStatus === 1 ? 'activate' : 'deactivate';
+                
+                Swal.fire({
+                    title: `${newStatus === 1 ? 'Activate' : 'Deactivate'} Auto-Reply?`,
+                    text: `Are you sure you want to ${statusText} this auto-reply?`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: `Yes, ${statusText} it`,
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        toggleAutoReplyStatus(replyId, newStatus);
                     }
                 });
-            }
-            {% endfor %}
-        {% endif %}
+            });
+        });
+        
+        // Delete auto-reply
+        const deleteAutoReplyBtns = document.querySelectorAll('.delete-auto-reply');
+        deleteAutoReplyBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const replyId = this.getAttribute('data-id');
+                const replyName = this.getAttribute('data-name');
+                
+                Swal.fire({
+                    title: 'Delete Auto-Reply?',
+                    html: `Are you sure you want to delete the auto-reply <strong>"${replyName}"</strong>?<br><br>This action cannot be undone.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, delete it',
+                    cancelButtonText: 'Cancel',
+                    confirmButtonColor: '#dc3545'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        fetch(`/whatsapp/delete-auto-reply/${replyId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Deleted!',
+                                    text: 'The auto-reply has been deleted.',
+                                    confirmButtonText: 'OK'
+                                }).then(() => {
+                                    window.location.reload();
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: data.error || 'Failed to delete auto-reply'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error deleting auto-reply:', error);
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'An error occurred while deleting the auto-reply. Please try again.'
+                            });
+                        });
+                    }
+                });
+            });
+        });
     });
     
     // Function to toggle auto-reply status
-    function toggleAutoReplyStatus(replyId, currentStatus) {
-        const newStatus = currentStatus === 1 ? 0 : 1;
-        
+    function toggleAutoReplyStatus(replyId, newStatus) {
         fetch(`/whatsapp/toggle-auto-reply-status/${replyId}/${newStatus}`, {
             method: 'POST',
             headers: {
@@ -454,15 +701,29 @@
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Reload the page to reflect changes
-                window.location.reload();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Status Updated',
+                    text: data.message || 'Auto-reply status has been updated.',
+                    confirmButtonText: 'OK'
+                }).then(() => {
+                    window.location.reload();
+                });
             } else {
-                alert('Error: ' + (data.error || 'Failed to update status'));
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: data.error || 'Failed to update status'
+                });
             }
         })
         .catch(error => {
             console.error('Error toggling status:', error);
-            alert('An error occurred while updating the status. Please try again.');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'An error occurred while updating the status. Please try again.'
+            });
         });
     }
 </script>

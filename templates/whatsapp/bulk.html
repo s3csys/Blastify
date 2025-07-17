@@ -138,31 +138,27 @@
         </div>
     </div>
 
-    <!-- Results Modal -->
-    <div class="modal fade" id="resultsModal" tabindex="-1" aria-labelledby="resultsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="resultsModalLabel">Message Results</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="resultsContent">
-                        <!-- Results will be populated here -->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- SweetAlert2 will be used for displaying results -->
 </div>
 {% endblock %}
 
 {% block javascript %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- WhatsApp JS Module -->
+<script src="{{ url_for('static', filename='js/whatsapp.js') }}"></script>
+
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // Initialize SweetAlert2 theme
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
+        
         const bulkMessageForm = document.getElementById('bulkMessageForm');
         const sessionSelect = document.getElementById('sessionSelect');
         const recipientsTextarea = document.getElementById('recipients');
@@ -174,8 +170,6 @@
         const queueButton = document.getElementById('queueButton');
         const processQueueButton = document.getElementById('processQueueButton');
         const refreshQueueButton = document.getElementById('refreshQueueButton');
-        const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
-        const resultsContent = document.getElementById('resultsContent');
         
         // Toggle queue options visibility
         queueMessagesCheckbox.addEventListener('change', function() {
@@ -232,7 +226,11 @@
                     loadQueueStatus();
                 } else {
                     // Show error
-                    alert('Error: ' + (data.error || 'Failed to send messages'));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Failed to send messages'
+                    });
                 }
             })
             .catch(error => {
@@ -240,7 +238,11 @@
                 sendButton.disabled = false;
                 sendButton.innerHTML = '<i class="align-middle" data-feather="send"></i> Send Messages';
                 feather.replace();
-                alert('An error occurred while sending messages. Please try again.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while sending messages. Please try again.'
+                });
             });
         });
         
@@ -284,7 +286,11 @@
                     loadQueueStatus();
                 } else {
                     // Show error
-                    alert('Error: ' + (data.error || 'Failed to queue messages'));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Failed to queue messages'
+                    });
                 }
             })
             .catch(error => {
@@ -292,7 +298,11 @@
                 queueButton.disabled = false;
                 queueButton.innerHTML = '<i class="align-middle" data-feather="clock"></i> Queue Messages';
                 feather.replace();
-                alert('An error occurred while queueing messages. Please try again.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while queueing messages. Please try again.'
+                });
             });
         });
         
@@ -321,12 +331,19 @@
                 
                 if (data.success) {
                     // Show alert
-                    alert(data.message);
+                    Toast.fire({
+                        icon: 'success',
+                        title: data.message
+                    });
                     // Refresh queue status
                     loadQueueStatus();
                 } else {
                     // Show error
-                    alert('Error: ' + (data.error || 'Failed to process queue'));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Failed to process queue'
+                    });
                 }
             })
             .catch(error => {
@@ -334,26 +351,42 @@
                 processQueueButton.disabled = false;
                 processQueueButton.innerHTML = '<i class="align-middle" data-feather="play"></i> Process Queue';
                 feather.replace();
-                alert('An error occurred while processing the queue. Please try again.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'An error occurred while processing the queue. Please try again.'
+                });
             });
         });
         
         // Validate form
         function validateForm() {
             if (!sessionSelect.value) {
-                alert('Please select a WhatsApp session');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Missing Information',
+                    text: 'Please select a WhatsApp session'
+                });
                 sessionSelect.focus();
                 return false;
             }
             
             if (!recipientsTextarea.value.trim()) {
-                alert('Please enter at least one recipient');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Missing Information',
+                    text: 'Please enter at least one recipient'
+                });
                 recipientsTextarea.focus();
                 return false;
             }
             
             if (!messageTextarea.value.trim() && !mediaUrlInput.value.trim()) {
-                alert('Please enter a message or provide a media URL');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Missing Information',
+                    text: 'Please enter a message or provide a media URL'
+                });
                 messageTextarea.focus();
                 return false;
             }
@@ -421,6 +454,11 @@
                             </div>
                         `;
                         feather.replace();
+                        
+                        Toast.fire({
+                            icon: 'error',
+                            title: 'Failed to load queue status'
+                        });
                     }
                 })
                 .catch(error => {
@@ -432,6 +470,11 @@
                         </div>
                     `;
                     feather.replace();
+                    
+                    Toast.fire({
+                        icon: 'error',
+                        title: 'Failed to load queue status'
+                    });
                 });
         }
         
@@ -465,7 +508,7 @@
             recentMessages.innerHTML = html;
         }
         
-        // Show results in modal
+        // Show results with SweetAlert2
         function showResults(data) {
             let html = `
                 <div class="alert alert-success">
@@ -509,12 +552,18 @@
                 html += '</tbody></table></div>';
             }
             
-            resultsContent.innerHTML = html;
-            feather.replace();
-            resultsModal.show();
+            Swal.fire({
+                title: 'Message Results',
+                html: html,
+                icon: 'success',
+                width: '800px',
+                didOpen: () => {
+                    feather.replace();
+                }
+            });
         }
         
-        // Show queue results in modal
+        // Show queue results with SweetAlert2
         function showQueueResults(data) {
             let html = `
                 <div class="alert alert-success">
@@ -555,9 +604,15 @@
                 html += '</tbody></table></div>';
             }
             
-            resultsContent.innerHTML = html;
-            feather.replace();
-            resultsModal.show();
+            Swal.fire({
+                title: 'Queue Results',
+                html: html,
+                icon: 'success',
+                width: '800px',
+                didOpen: () => {
+                    feather.replace();
+                }
+            });
         }
     });
 </script>

@@ -153,6 +153,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize DataTable
@@ -182,7 +184,13 @@
             $('#resendMessageModal').modal('hide');
             
             // Show success message
-            alert('Message resent successfully!');
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Message resent successfully!',
+                showConfirmButton: false,
+                timer: 1500
+            });
         });
 
         // Delete Message
@@ -194,7 +202,13 @@
             $('#deleteMessageModal').modal('hide');
             
             // Show success message
-            alert('Message deleted successfully!');
+            Swal.fire({
+                icon: 'success',
+                title: 'Success',
+                text: 'Message deleted successfully!',
+                showConfirmButton: false,
+                timer: 1500
+            });
         });
     });
 </script>

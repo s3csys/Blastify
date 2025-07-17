@@ -134,6 +134,9 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Initialize feather icons
@@ -202,14 +205,29 @@
                 success: function(response) {
                     if (response.success) {
                         // Show success message and reload page
-                        alert('Message sent successfully!');
-                        window.location.reload();
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success',
+                            text: 'Message sent successfully!',
+                            showConfirmButton: false,
+                            timer: 1500
+                        }).then(() => {
+                            window.location.reload();
+                        });
                     } else {
-                        alert(`Error sending message: ${response.error}`);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: `Error sending message: ${response.error}`
+                        });
                     }
                 },
                 error: function() {
-                    alert('Error sending message. Please try again.');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error sending message. Please try again.'
+                    });
                 }
             });
         });

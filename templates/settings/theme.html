@@ -222,6 +222,8 @@
 }
 </style>
 
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Get current theme from localStorage or default to 'default'
@@ -259,14 +261,28 @@ document.addEventListener('DOMContentLoaded', function() {
                     document.querySelector(`.theme-card[data-theme="${theme}"]`).classList.add('active');
                     
                     // Show success message
-                    alert('Theme updated successfully!');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: 'Theme updated successfully!',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
                 } else {
-                    alert('Failed to update theme: ' + data.message);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: 'Failed to update theme: ' + data.message
+                    });
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while updating the theme.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error!',
+                    text: 'An error occurred while updating the theme.'
+                });
             });
         });
     });

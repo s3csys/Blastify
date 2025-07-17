@@ -212,6 +212,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // View message details
@@ -263,7 +265,13 @@
             const messageId = $('#viewMessageId').text();
             
             // Here you would normally send an AJAX request to send the message immediately
-            alert(`Message ${messageId} will be sent immediately`);
+            Swal.fire({
+                icon: 'success',
+                title: 'Message Sent',
+                text: `Message ${messageId} will be sent immediately`,
+                timer: 1500,
+                showConfirmButton: false
+            });
             
             // Close the modal
             $('#viewMessageModal').modal('hide');

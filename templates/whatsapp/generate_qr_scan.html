@@ -1,0 +1,117 @@
+{% extends "dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+    <div class="row mb-2 mb-xl-3">
+        <div class="col-auto d-none d-sm-block">
+            <h1 class="h3 mb-3">Scan WhatsApp QR Code</h1>
+        </div>
+
+        <div class="col-auto ms-auto text-end mt-n1">
+            <a href="{{ url_for('whatsapp_web.generate_qr_page') }}" class="btn btn-light">
+                <i class="align-middle" data-feather="arrow-left"></i> Back to Generate QR
+            </a>
+            <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-light">
+                <i class="align-middle" data-feather="list"></i> All Sessions
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12 col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Scan QR Code for {{ session.name }}</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <div class="qr-code-wrapper" style="background-color: white; padding: 10px; display: inline-block; border-radius: 8px;">
+                            <img src="{{ qr_code }}" alt="WhatsApp QR Code" class="img-fluid" style="max-width: 300px;">
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" role="alert">
+                        <i class="align-middle" data-feather="info"></i>
+                        <strong>Scan this QR code with WhatsApp on your phone to connect.</strong>
+                        <ul class="mt-2 mb-0 text-start">
+                            <li>Open WhatsApp on your phone</li>
+                            <li>Tap <strong>Menu</strong> or <strong>Settings</strong></li>
+                            <li>Tap <strong>Linked Devices</strong></li>
+                            <li>Tap <strong>Link a Device</strong></li>
+                            <li>Point your phone camera at this screen to scan the QR code</li>
+                        </ul>
+                    </div>
+                    
+                    <div id="connectionStatus" class="mt-3">
+                        <div class="alert alert-secondary" role="alert">
+                            <div class="d-flex align-items-center">
+                                <i class="align-middle me-2" data-feather="clock"></i>
+                                <span>Waiting for connection...</span>
+                            </div>
+                            <div class="progress mt-2" style="height: 5px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('whatsapp_web.refresh_qr_code', session_id=session_id) }}" class="btn btn-warning">
+                            <i class="align-middle" data-feather="refresh-cw"></i> Refresh QR Code
+                        </a>
+                        <a href="{{ url_for('whatsapp_web.display_qr_code', session_id=session_id) }}" class="btn btn-secondary" target="_blank">
+                            <i class="align-middle" data-feather="maximize"></i> View Full Size
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Check connection status periodically
+    let checkInterval;
+    
+    function checkConnectionStatus() {
+        fetch('{{ url_for("whatsapp_web.check_session_status") }}?session_id={{ session_id }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success' && data.session && data.session.status === 'connected') {
+                    // Connection successful
+                    document.getElementById('connectionStatus').innerHTML = `
+                        <div class="alert alert-success" role="alert">
+                            <div class="d-flex align-items-center">
+                                <i class="align-middle me-2" data-feather="check-circle"></i>
+                                <span><strong>Connected!</strong> WhatsApp session is now active.</span>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <a href="{{ url_for('whatsapp_web.index') }}" class="btn btn-primary">
+                                <i class="align-middle" data-feather="list"></i> Go to Sessions
+                            </a>
+                        </div>
+                    `;
+                    feather.replace();
+                    clearInterval(checkInterval);
+                }
+            })
+            .catch(error => console.error('Error checking connection status:', error));
+    }
+    
+    // Add theme-specific adjustments for QR code
+    document.addEventListener('DOMContentLoaded', function() {
+        const currentTheme = localStorage.getItem('theme') || 'default';
+        const qrCodeWrapper = document.querySelector('.qr-code-wrapper');
+        
+        if (currentTheme === 'dark-enterprise' || document.body.classList.contains('dark-mode')) {
+            if (qrCodeWrapper) {
+                qrCodeWrapper.style.border = '5px solid white';
+            }
+        }
+        
+        // Start checking connection status
+        checkInterval = setInterval(checkConnectionStatus, 5000);
+        feather.replace();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,212 @@
+/* WhatsApp UI Styles */
+
+/* QR Code Container Styles */
+.qr-code-container {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.qr-code-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.qr-code-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    border-radius: 8px;
+}
+
+.qr-code-timer {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+}
+
+.qr-code-timer.expiring {
+    background-color: rgba(220, 53, 69, 0.8);
+}
+
+.qr-code-actions {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.qr-code-actions button {
+    background-color: rgba(0, 0, 0, 0.6);
+    border: none;
+    color: white;
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.qr-code-actions button:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* WhatsApp Session Card Styles */
+.whatsapp-session-card {
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 20px;
+}
+
+.whatsapp-session-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.whatsapp-session-header {
+    padding: 15px;
+    background-color: var(--primary);
+    color: white;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.whatsapp-session-body {
+    padding: 20px;
+}
+
+.whatsapp-session-footer {
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.03);
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+
+/* Status Badges */
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-connected {
+    background-color: rgba(28, 187, 140, 0.1);
+    color: #1cbb8c;
+}
+
+.status-disconnected {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.status-connecting {
+    background-color: rgba(252, 185, 44, 0.1);
+    color: #fcb92c;
+}
+
+/* Auto-reply Table Styles */
+.auto-reply-table th {
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.auto-reply-table td {
+    vertical-align: middle;
+}
+
+.trigger-badge {
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.trigger-keyword {
+    background-color: rgba(23, 162, 184, 0.1);
+    color: #17a2b8;
+}
+
+.trigger-welcome {
+    background-color: rgba(28, 187, 140, 0.1);
+    color: #1cbb8c;
+}
+
+.trigger-away {
+    background-color: rgba(252, 185, 44, 0.1);
+    color: #fcb92c;
+}
+
+/* Empty State Styles */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.empty-state-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+    color: var(--secondary);
+}
+
+/* Form Styles */
+.form-label {
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+/* Loading Spinner */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .whatsapp-session-card {
+        margin-bottom: 15px;
+    }
+    
+    .whatsapp-session-header,
+    .whatsapp-session-body,
+    .whatsapp-session-footer {
+        padding: 10px;
+    }
+}

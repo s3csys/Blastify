@@ -118,7 +118,7 @@
                                 <button type="submit" class="btn btn-primary">
                                     <i class="align-middle" data-feather="save"></i> Save Template
                                 </button>
-                                <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('message.templates') }}'">
+                                <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('message.templates') }}'"></button>
                                     Cancel
                                 </button>
                             </div>
@@ -156,6 +156,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Form submission
@@ -164,12 +166,20 @@
             
             // Validate form
             if (!$('#templateName').val().trim()) {
-                alert('Please enter a template name');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Validation Error',
+                    text: 'Please enter a template name'
+                });
                 return false;
             }
             
             if (!$('#templateContent').val().trim()) {
-                alert('Please enter template content');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Validation Error',
+                    text: 'Please enter template content'
+                });
                 return false;
             }
             
@@ -189,13 +199,23 @@
                 success: function(response) {
                     if (response.success) {
                         // Show success message
-                        alert('Template saved successfully!');
-                        
-                        // Redirect to templates list
-                        window.location.href = "{{ url_for('message.templates') }}";
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Success!',
+                            text: 'Template saved successfully!',
+                            timer: 1500,
+                            showConfirmButton: false
+                        }).then(() => {
+                            // Redirect to templates list
+                            window.location.href = "{{ url_for('message.templates') }}";
+                        });
                     } else {
                         // Show error message
-                        alert('Failed to save template: ' + response.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to save template: ' + response.message
+                        });
                         
                         // Re-enable save button
                         $('#saveTemplateBtn').prop('disabled', false).html('Save Template');
@@ -203,7 +223,11 @@
                 },
                 error: function(xhr) {
                     // Show error message
-                    alert('Failed to save template: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Server error'));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to save template: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Server error')
+                    });
                     
                     // Re-enable save button
                     $('#saveTemplateBtn').prop('disabled', false).html('Save Template');
@@ -263,7 +287,11 @@
             
             const categoryName = $('#categoryName').val();
             if (!categoryName.trim()) {
-                alert('Please enter a category name');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Validation Error',
+                    text: 'Please enter a category name'
+                });
                 return;
             }
             
@@ -287,11 +315,19 @@
                         // Clear the form
                         $('#categoryName').val('');
                     } else {
-                        alert('Failed to add category: ' + response.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Failed to add category: ' + response.message
+                        });
                     }
                 },
                 error: function(xhr) {
-                    alert('Failed to add category: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Server error'));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Failed to add category: ' + (xhr.responseJSON ? xhr.responseJSON.message : 'Server error')
+                    });
                 }
             });
         });

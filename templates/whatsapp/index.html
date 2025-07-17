@@ -37,8 +37,8 @@
                             <tbody>
                                 {% for session in sessions %}
                                 <tr>
-                                    <td>{{ session.device_name }}</td>
-                                    <td>{{ session.phone_number }}</td>
+                                    <td>{{ session.name }}</td>
+                                    <td>{% if session.devices and session.devices|length > 0 %}{{ session.devices[0].phone_number }}{% else %}Not available{% endif %}</td>
                                     <td>
                                         {% if session.is_active %}
                                         <span class="badge bg-success">Active</span>
@@ -55,100 +55,17 @@
                                             </button>
                                             <ul class="dropdown-menu">
                                                 <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#sessionDetailsModal{{ session.id }}">View Details</a></li>
-                                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#refreshSessionModal{{ session.id }}">Refresh Session</a></li>
+                                                <li><a class="dropdown-item refresh-session-btn" href="#" data-session-id="{{ session.id }}" data-session-name="{{ session.name }}" data-phone-number="{% if session.devices and session.devices|length > 0 %}{{ session.devices[0].phone_number }}{% else %}Not available{% endif %}">Refresh Session</a></li>
                                                 <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item text-danger" href="#" data-bs-toggle="modal" data-bs-target="#disconnectSessionModal{{ session.id }}">Disconnect</a></li>
+                                                <li><a class="dropdown-item text-danger disconnect-session-btn" href="#" data-session-id="{{ session.id }}" data-session-name="{{ session.name }}" data-phone-number="{% if session.devices and session.devices|length > 0 %}{{ session.devices[0].phone_number }}{% else %}Not available{% endif %}">Disconnect</a></li>
                                             </ul>
                                         </div>
+                                        
+                                        <!-- Hidden forms for submission -->
+                                        <form id="refresh-form-{{ session.id }}" action="{{ url_for('whatsapp_web.refresh_session', session_id=session.id) }}" method="POST" style="display: none;"></form>
+                                        <form id="disconnect-form-{{ session.id }}" action="{{ url_for('whatsapp_web.disconnect', session_id=session.id) }}" method="POST" style="display: none;"></form>
                                     </td>
                                 </tr>
-
-                                <!-- Session Details Modal -->
-                                <div class="modal fade" id="sessionDetailsModal{{ session.id }}" tabindex="-1" aria-labelledby="sessionDetailsModalLabel{{ session.id }}" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="sessionDetailsModalLabel{{ session.id }}">Session Details</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <div class="mb-3">
-                                                    <strong>Device Name:</strong> {{ session.device_name }}
-                                                </div>
-                                                <div class="mb-3">
-                                                    <strong>Phone Number:</strong> {{ session.phone_number }}
-                                                </div>
-                                                <div class="mb-3">
-                                                    <strong>Status:</strong>
-                                                    {% if session.is_active %}
-                                                    <span class="badge bg-success">Active</span>
-                                                    {% else %}
-                                                    <span class="badge bg-danger">Inactive</span>
-                                                    {% endif %}
-                                                </div>
-                                                <div class="mb-3">
-                                                    <strong>Connected Since:</strong> {{ session.created_at.strftime('%Y-%m-%d %H:%M') }}
-                                                </div>
-                                                <div class="mb-3">
-                                                    <strong>Last Activity:</strong> {{ session.updated_at.strftime('%Y-%m-%d %H:%M') }}
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Refresh Session Modal -->
-                                <div class="modal fade" id="refreshSessionModal{{ session.id }}" tabindex="-1" aria-labelledby="refreshSessionModalLabel{{ session.id }}" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="refreshSessionModalLabel{{ session.id }}">Refresh WhatsApp Session</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <p>Are you sure you want to refresh this WhatsApp session?</p>
-                                                <p><strong>Device:</strong> {{ session.device_name }}</p>
-                                                <p><strong>Phone:</strong> {{ session.phone_number }}</p>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                <form action="{{ url_for('whatsapp_web.refresh_session', session_id=session.id) }}" method="POST">
-                                                    <button type="submit" class="btn btn-primary">Refresh Session</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Disconnect Session Modal -->
-                                <div class="modal fade" id="disconnectSessionModal{{ session.id }}" tabindex="-1" aria-labelledby="disconnectSessionModalLabel{{ session.id }}" aria-hidden="true">
-                                    <div class="modal-dialog">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="disconnectSessionModalLabel{{ session.id }}">Disconnect WhatsApp</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <p>Are you sure you want to disconnect this WhatsApp session?</p>
-                                                <p><strong>Device:</strong> {{ session.device_name }}</p>
-                                                <p><strong>Phone:</strong> {{ session.phone_number }}</p>
-                                                <div class="alert alert-warning">
-                                                    <i class="align-middle" data-feather="alert-triangle"></i>
-                                                    This action will log out WhatsApp on this device and you will need to scan the QR code again to reconnect.
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                <form action="{{ url_for('whatsapp_web.disconnect', session_id=session.id) }}" method="POST">
-                                                    <button type="submit" class="btn btn-danger">Disconnect</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -176,9 +93,66 @@
 {% endblock %}
 
 {% block javascript %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Initialize any JavaScript functionality for the WhatsApp page
+        // Handle refresh session confirmation
+        document.querySelectorAll('.refresh-session-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const sessionId = this.getAttribute('data-session-id');
+                const sessionName = this.getAttribute('data-session-name');
+                const phoneNumber = this.getAttribute('data-phone-number');
+                
+                Swal.fire({
+                    title: 'Refresh WhatsApp Session',
+                    html: `<p>Are you sure you want to refresh this WhatsApp session?</p>
+                          <p><strong>Session:</strong> ${sessionName}</p>
+                          <p><strong>Phone:</strong> ${phoneNumber || 'Not available'}</p>`,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Refresh Session',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        document.getElementById('refresh-form-' + sessionId).submit();
+                    }
+                });
+            });
+        });
+        
+        // Handle disconnect session confirmation
+        document.querySelectorAll('.disconnect-session-btn').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const sessionId = this.getAttribute('data-session-id');
+                const sessionName = this.getAttribute('data-session-name');
+                const phoneNumber = this.getAttribute('data-phone-number');
+                
+                Swal.fire({
+                    title: 'Disconnect WhatsApp',
+                    html: `<p>Are you sure you want to disconnect this WhatsApp session?</p>
+                          <p><strong>Session:</strong> ${sessionName}</p>
+                          <p><strong>Phone:</strong> ${phoneNumber || 'Not available'}</p>
+                          <div class="alert alert-warning">
+                              <i class="align-middle" data-feather="alert-triangle"></i>
+                              This action will log out WhatsApp on this device and you will need to scan the QR code again to reconnect.
+                          </div>`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Disconnect',
+                    cancelButtonText: 'Cancel'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        document.getElementById('disconnect-form-' + sessionId).submit();
+                    }
+                });
+            });
+        });
     });
 </script>
 {% endblock %}

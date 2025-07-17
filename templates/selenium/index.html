@@ -141,8 +141,21 @@
 {% endblock %}
 
 {% block javascript %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<!-- WhatsApp JS Module -->
+<script src="{{ url_for('static', filename='js/whatsapp.js') }}"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize SweetAlert2 theme
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
         // Test Selenium integration
         const checkSeleniumBtn = document.getElementById('check-selenium');
         if (checkSeleniumBtn) {
@@ -213,7 +226,11 @@
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error checking Selenium integration: ' + error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error checking Selenium integration: ' + error
+                    });
                 });
             });
         }
@@ -255,12 +272,20 @@
                         // Set the processed log text
                         logsElement.innerHTML = logText;
                     } else {
-                        alert('Error getting logs: ' + data.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error getting logs: ' + data.message
+                        });
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('Error getting logs: ' + error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error getting logs: ' + error
+                    });
                 });
             });
         }

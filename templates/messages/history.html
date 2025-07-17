@@ -248,6 +248,8 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- SweetAlert2 -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Filter by status
@@ -332,34 +334,80 @@
         $('.resend-message').on('click', function() {
             const messageId = $(this).data('message-id');
             
-            if (confirm('Are you sure you want to resend this message?')) {
-                // Here you would normally send an AJAX request to resend the message
-                alert(`Message ${messageId} will be resent`);
-            }
+            Swal.fire({
+                title: 'Confirm Resend',
+                text: 'Are you sure you want to resend this message?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, resend it',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Here you would normally send an AJAX request to resend the message
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Message Resent',
+                        text: `Message ${messageId} will be resent`,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            });
         });
 
         // Modal resend button
         $('#modalResendBtn').on('click', function() {
             const messageId = $('#viewMessageId').text();
             
-            if (confirm('Are you sure you want to resend this message?')) {
-                // Here you would normally send an AJAX request to resend the message
-                alert(`Message ${messageId} will be resent`);
-                
-                // Close the modal
-                $('#viewMessageModal').modal('hide');
-            }
+            Swal.fire({
+                title: 'Confirm Resend',
+                text: 'Are you sure you want to resend this message?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, resend it',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Here you would normally send an AJAX request to resend the message
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Message Resent',
+                        text: `Message ${messageId} will be resent`,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    
+                    // Close the modal
+                    $('#viewMessageModal').modal('hide');
+                }
+            });
         });
 
         // Export history
         $('#exportHistoryBtn').on('click', function() {
             // Here you would normally trigger an export process
-            alert('Exporting message history...');
-            
-            // Simulate download after a short delay
-            setTimeout(function() {
-                alert('Export complete! File downloaded.');
-            }, 1500);
+            let timerInterval;
+            Swal.fire({
+                title: 'Exporting',
+                html: 'Exporting message history...',
+                timer: 1500,
+                timerProgressBar: true,
+                didOpen: () => {
+                    Swal.showLoading();
+                },
+                willClose: () => {
+                    clearInterval(timerInterval);
+                }
+            }).then(() => {
+                // Simulate download complete
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Export Complete',
+                    text: 'File downloaded successfully',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            });
         });
     });
 </script>

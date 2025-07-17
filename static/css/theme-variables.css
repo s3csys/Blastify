@@ -208,3 +208,14 @@ body.theme-dark-enterprise .btn-primary {
     background: linear-gradient(118deg, var(--primary), rgba(115, 103, 240, 0.7));
     border-color: transparent;
 }
+
+/* QR Code specific theme adjustments */
+body.dark-mode .card img[alt="WhatsApp QR Code"] {
+    background-color: white;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+body.theme-dark-enterprise .card img[alt="WhatsApp QR Code"] {
+    border: 5px solid white;
+}

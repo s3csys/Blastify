@@ -1,6 +1,7 @@
 """WhatsApp authentication service."""
 
 import logging
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 
 from app import db
@@ -345,6 +346,52 @@ class WhatsAppAuth:
             
         except Exception as e:
             logger.error(f"Error disconnecting session: {str(e)}")
+            return {
+                "status": "failed",
+                "error": str(e)
+            }
+    
+    @staticmethod
+    def refresh_session(session_id: str) -> Dict[str, Any]:
+        """Refresh a WhatsApp session.
+        
+        Args:
+            session_id: ID of the session to refresh
+            
+        Returns:
+            Dictionary with refresh status
+        """
+        try:
+            # Get session from database
+            session = WhatsAppSession.get_session_by_id(session_id)
+            if not session:
+                return {
+                    "status": "failed",
+                    "error": f"Session with ID '{session_id}' not found"
+                }
+            
+            # Create client with existing session
+            client = WhatsAppClient(session_id=session_id)
+            
+            # Refresh QR code if not connected
+            if session.status != "connected":
+                logger.info(f"Session not connected, refreshing QR code for session: {session_id}")
+                return client.refresh_qr_code()
+            
+            # For connected sessions, refresh the connection
+            logger.info(f"Refreshing connected session: {session_id}")
+            
+            # Update session timestamp
+            session.last_connected = datetime.utcnow()
+            db.session.commit()
+            
+            return {
+                "status": "success",
+                "message": "Session refreshed successfully"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error refreshing session: {str(e)}")
             return {
                 "status": "failed",
                 "error": str(e)
